@@ -5,7 +5,7 @@ public class Participant extends User {
     private int teamId;
     private String role;
 
-    public Participant() {
+    public Participant(int id, String name, String email, String password, int teamId) {
         super();
     }
 

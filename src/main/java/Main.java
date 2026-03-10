@@ -1,15 +1,15 @@
+import controller.Controller;
 import gui.AuthFrame;
 import javax.swing.SwingUtilities;
 
 public class Main {
     public static void main(String[] args) {
-        // SwingUtilities.invokeLater assicura che la GUI venga creata nel thread corretto
         SwingUtilities.invokeLater(() -> {
             try {
-                // Crea l'istanza della tua finestra di autenticazione
-                AuthFrame authFrame = new AuthFrame();
+                Controller controller = new Controller();
 
-                // La rende visibile
+                AuthFrame authFrame = new AuthFrame(controller);
+
                 authFrame.setVisible(true);
 
                 System.out.println("✅ Applicazione avviata correttamente.");

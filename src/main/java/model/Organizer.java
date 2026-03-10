@@ -5,7 +5,7 @@ public class Organizer extends User {
 
     private int hackathonId;
 
-    public Organizer() {
+    public Organizer(int id, String name, String email, String password, int hId) {
         super();
     }
 
