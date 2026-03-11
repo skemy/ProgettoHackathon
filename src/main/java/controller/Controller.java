@@ -12,6 +12,7 @@ import dao.UserDAO;
 import dao.UserDAOImpl;
 import model.Hackathon;
 import model.Organizer;
+import model.Team;
 import model.User;
 
 import java.sql.Connection;
@@ -19,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -72,7 +74,13 @@ public class Controller {
 
         // CORREZIONE 2: Usiamo getName() al posto di getUsername()
         System.out.println("✅ Login confermato dal Database! Benvenuto a bordo, " + user.getName());
+        // 2. Salviamo la "Sessione" dell'utente!
+        this.loggedInUser = user;
+
+        // AGGIUNGI QUESTA RIGA:
+        System.out.println("🚨 DEBUG LOGIN: La classe dell'utente in memoria è: " + this.loggedInUser.getClass().getSimpleName());
     }
+
 
     /**
      * Tenta la registrazione di un nuovo utente.
@@ -230,4 +238,116 @@ public class Controller {
         );
         System.out.println("✅ Memoria aggiornata: L'utente ora è un Participant!");
     }
+
+    // ==========================================================
+    // METODI STUB PER LA GUI HACKATHON CARD PANEL (BCE PATTERN)
+    // ==========================================================
+
+// ==========================================================
+    // METODI PER LA GUI HACKATHON CARD PANEL (BCE PATTERN)
+    // ==========================================================
+// ==========================================================
+    // METODI PER LA GUI HACKATHON CARD PANEL (BCE PATTERN)
+    // ==========================================================
+
+    /**
+     * Recupera l'Hackathon in base al ruolo dell'utente attuale.
+     */
+    public Hackathon getCurrentHackathon() {
+        if (loggedInUser == null) return null;
+
+        System.out.println("-------------------------------------------------");
+        System.out.println("🕵️ INDAGINE HACKATHON PER: " + loggedInUser.getName() + " (Classe: " + loggedInUser.getClass().getSimpleName() + ")");
+
+        int hId = -1;
+
+        // 1. Capiamo chi è e che ID deve cercare
+        if (loggedInUser instanceof Organizer) {
+            hId = ((Organizer) loggedInUser).getHackathonId();
+            System.out.println("🔎 Ruolo: Organizer. Cerco Hackathon ID: " + hId);
+        } else if (loggedInUser instanceof model.Judge) {
+            hId = ((model.Judge) loggedInUser).getHackathonId();
+            System.out.println("🔎 Ruolo: Judge. Cerco Hackathon ID: " + hId);
+        } else if (loggedInUser instanceof model.Participant) {
+            int teamId = ((model.Participant) loggedInUser).getTeamId();
+            hId = getHackathonIdFromTeam(teamId);
+            System.out.println("🔎 Ruolo: Participant (Team ID: " + teamId + "). Hackathon ID trovato: " + hId);
+        } else {
+            System.out.println("🚫 Ruolo: Semplice User. Nessun hackathon associato. (È CORRETTO CHE VEDA N/A E IL POPUP)");
+            return null;
+        }
+
+        // 2. Controllo di sicurezza sull'ID
+        if (hId <= 0) {
+            System.out.println("❌ ERRORE: L'ID dell'hackathon è " + hId + ". Impossibile cercare nel DB.");
+            return null;
+        }
+
+        // 3. Estrazione dal DB con trappola per errori silenziosi
+        try {
+            Hackathon h = hackathonDAO.getHackathonById(hId);
+            if (h == null) {
+                System.out.println("❌ ERRORE CRITICO: Il DAO ha restituito NULL per l'ID " + hId + "!");
+            } else {
+                System.out.println("✅ SUCCESSO: Hackathon trovato! Titolo: " + h.getTitle());
+            }
+            System.out.println("-------------------------------------------------");
+            return h;
+        } catch (Exception e) {
+            System.out.println("🔥 ECCEZIONE ESPLOSIVA durante l'estrazione dal DB:");
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Helper temporaneo: trova l'hackathonId a cui appartiene un Team.
+     */
+    private int getHackathonIdFromTeam(int teamId) {
+        String query = "SELECT hackathonId FROM team WHERE teamId = ?";
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, teamId);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("hackathonId");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
+
+    /**
+     * Verifica se l'utente attualmente loggato ha il ruolo di Giudice.
+     */
+    public boolean isCurrentUserJudge() {
+        return loggedInUser instanceof model.Judge;
+    }
+
+    /**
+     * Recupera il nome dell'organizzatore partendo dall'ID dell'hackathon.
+     */
+    public String getOrganizerNameForHackathon(int hackathonId) {
+        if (hackathonDAO instanceof HackathonDAOImpl) {
+            return ((HackathonDAOImpl) hackathonDAO).getOrganizerUsernameByHackathonId(hackathonId);
+        }
+        return "Unknown";
+    }
+
+    public boolean updateHackathonProblem(String newDescription) {
+        Hackathon currentHackathon = getCurrentHackathon();
+        if (currentHackathon != null) {
+            hackathonDAO.updateProblemDescription(currentHackathon.getHackathonId(), newDescription);
+            return true;
+        }
+        return false;
+    }
+
+    public List<Team> getRankedTeams() {
+        return new ArrayList<>();
+    }
+
+
 }

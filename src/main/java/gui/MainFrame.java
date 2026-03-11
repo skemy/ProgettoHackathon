@@ -56,16 +56,19 @@ public class MainFrame extends JFrame {
         customizeComponents();
     }
 
+    private HackathonCardPanel hackathonCard;
+
     private void setupCardPanel() {
         cardLayout = new CardLayout();
         cardPanel.setLayout(cardLayout);
 
-        // Dashboard reale
         DashboardCardPanel dashboardCard = new DashboardCardPanel(controller);
         JPanel dashboardPanel = dashboardCard.getRootPanel();
 
-        // Segnaposti per le altre sezioni
-        JPanel hackathonPanel = new JPanel(); hackathonPanel.setBackground(Color.GRAY);
+        hackathonCard = new HackathonCardPanel(controller);
+        JPanel hackathonPanel = hackathonCard.getRootPanel();
+
+        // Segnaposti rimanenti
         JPanel teamPanel = new JPanel(); teamPanel.setBackground(Color.LIGHT_GRAY);
         JPanel managePanel = new JPanel(); managePanel.setBackground(Color.DARK_GRAY);
 
@@ -105,19 +108,46 @@ public class MainFrame extends JFrame {
     }
 
     private void setupListeners() {
+        // Tasto Dashboard
         rDashboardPanel.addMouseListener(new MouseAdapter() {
             @Override public void mousePressed(MouseEvent e) { cardLayout.show(cardPanel, "dashboard"); }
             @Override public void mouseEntered(MouseEvent e) { rDashboardPanel.setBackground(UIColors.CARMINE_RED); }
             @Override public void mouseExited(MouseEvent e) { rDashboardPanel.setBackground(UIColors.NIGHT_BLUE); }
         });
 
+
+        rHackathonPanel.addMouseListener(new MouseAdapter() {
+            @Override public void mousePressed(MouseEvent e) {
+                hackathonCard.refreshData(true); // <--- AGGIUNGI IL TRUE QUI
+                cardLayout.show(cardPanel, "hackathon");
+            }
+            @Override public void mouseEntered(MouseEvent e) { rHackathonPanel.setBackground(UIColors.CARMINE_RED); }
+            @Override public void mouseExited(MouseEvent e) { rHackathonPanel.setBackground(UIColors.NIGHT_BLUE); }
+        });
+
+        // Tasto Team (Il mio team / Creazione team)
+        rTeamPanel.addMouseListener(new MouseAdapter() {
+            @Override public void mousePressed(MouseEvent e) { cardLayout.show(cardPanel, "team"); }
+            @Override public void mouseEntered(MouseEvent e) { rTeamPanel.setBackground(UIColors.CARMINE_RED); }
+            @Override public void mouseExited(MouseEvent e) { rTeamPanel.setBackground(UIColors.NIGHT_BLUE); }
+        });
+
+        // Tasto Manage (Solo per Organizer)
+        rManagePanel.addMouseListener(new MouseAdapter() {
+            @Override public void mousePressed(MouseEvent e) { cardLayout.show(cardPanel, "manage"); }
+            @Override public void mouseEntered(MouseEvent e) { rManagePanel.setBackground(UIColors.CARMINE_RED); }
+            @Override public void mouseExited(MouseEvent e) { rManagePanel.setBackground(UIColors.NIGHT_BLUE); }
+        });
+
+        // Tasto Logout
         rLogoutPanel.addMouseListener(new MouseAdapter() {
-            @Override public void mousePressed(MouseEvent e) { dispose(); new AuthFrame(new Controller()).setVisible(true); }
+            @Override public void mousePressed(MouseEvent e) {
+                dispose();
+                new AuthFrame(new Controller()).setVisible(true);
+            }
             @Override public void mouseEntered(MouseEvent e) { rLogoutPanel.setBackground(UIColors.CARMINE_RED); }
             @Override public void mouseExited(MouseEvent e) { rLogoutPanel.setBackground(UIColors.NIGHT_BLUE); }
         });
-
-        // Aggiungi qui gli altri listener per Hackathon, Team e Manage se vuoi che siano cliccabili
     }
 
     // --- NON CANCELLARE IL METODO $$$setupUI$$$ CHE SEGUE ---

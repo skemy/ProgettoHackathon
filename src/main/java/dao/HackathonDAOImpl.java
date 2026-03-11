@@ -8,24 +8,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Implementazione dell'interfaccia HackathonDAO per database PostgreSQL.
- * Gestisce la persistenza degli oggetti Hackathon utilizzando JDBC.
- */
 public class HackathonDAOImpl implements HackathonDAO {
 
-    /**
-     * Inserisce un nuovo record Hackathon nel database.
-     * * @param h L'oggetto Hackathon contenente i dati da salvare.
-     */
     @Override
     public void createHackathon(Hackathon h) {
-// Modifica la query nel metodo createHackathon di HackathonDAOImpl.java
+        // Query aggiornata in base al tuo nuovo DB (nessun organizerId qui)
         String query = "INSERT INTO hackathon (title, location, startDate, endDate, " +
                 "registrationStartDate, registrationEndDate, maxParticipants, " +
                 "maxTeamSize, problemDescription) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        // Aggiungiamo Statement.RETURN_GENERATED_KEYS qui!
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -44,28 +35,19 @@ public class HackathonDAOImpl implements HackathonDAO {
                 ps.setNull(9, Types.VARCHAR);
             }
 
-            // 1. Eseguiamo l'inserimento
             ps.executeUpdate();
 
-            // 2. Catturiamo l'ID appena generato e lo "iniettiamo" nell'oggetto
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
-                    int idGenerato = rs.getInt(1);
-                    h.setHackathonId(idGenerato); // Aggiorniamo il Model!
-                    System.out.println("✅ Hackathon '" + h.getTitle() + "' creato nel DB con ID: " + h.getHackathonId());
+                    h.setHackathonId(rs.getInt(1));
+                    System.out.println("✅ Hackathon creato con ID: " + h.getHackathonId());
                 }
             }
-
         } catch (SQLException e) {
-            System.err.println("❌ Errore durante la creazione dell'Hackathon: " + e.getMessage());
             e.printStackTrace();
         }
     }
-    /**
-     * Recupera un Hackathon tramite il suo identificativo.
-     * * @param id ID dell'evento.
-     * @return L'oggetto Hackathon se trovato, null altrimenti.
-     */
+
     @Override
     public Hackathon getHackathonById(int id) {
         String query = "SELECT * FROM hackathon WHERE hackathonId = ?";
@@ -80,17 +62,12 @@ public class HackathonDAOImpl implements HackathonDAO {
             if (rs.next()) {
                 h = mapResultSetToHackathon(rs);
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return h;
     }
 
-    /**
-     * Recupera tutti gli Hackathon registrati nel sistema.
-     * * @return Una lista di oggetti Hackathon.
-     */
     @Override
     public List<Hackathon> getAllHackathons() {
         List<Hackathon> list = new ArrayList<>();
@@ -103,18 +80,12 @@ public class HackathonDAOImpl implements HackathonDAO {
             while (rs.next()) {
                 list.add(mapResultSetToHackathon(rs));
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return list;
     }
 
-    /**
-     * Aggiorna la descrizione del problema/traccia per un hackathon esistente.
-     * * @param hackathonId ID dell'evento da aggiornare.
-     * @param description Nuovo testo della traccia.
-     */
     @Override
     public void updateProblemDescription(int hackathonId, String description) {
         String query = "UPDATE hackathon SET problemDescription = ? WHERE hackathonId = ?";
@@ -124,39 +95,42 @@ public class HackathonDAOImpl implements HackathonDAO {
 
             ps.setString(1, description);
             ps.setInt(2, hackathonId);
-
-            int rowsUpdated = ps.executeUpdate();
-            if (rowsUpdated > 0) {
-                System.out.println("✅ Descrizione problema aggiornata per Hackathon ID: " + hackathonId);
-            } else {
-                System.out.println("⚠️ Nessun Hackathon trovato con ID: " + hackathonId);
-            }
+            ps.executeUpdate();
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    /**
-     * Converte una riga del ResultSet in un oggetto Hackathon.
-     * * @param rs ResultSet posizionato sulla riga da mappare.
-     * @return Oggetto Hackathon popolato.
-     * @throws SQLException In caso di errori nell'accesso ai dati del ResultSet.
-     */
-    private Hackathon mapResultSetToHackathon(ResultSet rs) throws SQLException {
-        LocalDateTime start = rs.getTimestamp("startDate").toLocalDateTime();
-        LocalDateTime end = rs.getTimestamp("endDate").toLocalDateTime();
-        LocalDateTime regStart = rs.getTimestamp("registrationStartDate").toLocalDateTime();
-        LocalDateTime regEnd = rs.getTimestamp("registrationEndDate").toLocalDateTime();
+    // --- NUOVO METODO PER RECUPERARE IL NOME DELL'ORGANIZZATORE CON UNA JOIN ---
+    public String getOrganizerUsernameByHackathonId(int hackathonId) {
+        String query = "SELECT u.name FROM users u " +
+                "JOIN organizer o ON u.userId = o.userId " +
+                "WHERE o.hackathonId = ?";
 
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+
+            ps.setInt(1, hackathonId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getString("name"); // Ritorna il nome dell'organizzatore
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "Unknown Organizer";
+    }
+
+    private Hackathon mapResultSetToHackathon(ResultSet rs) throws SQLException {
         return new Hackathon(
                 rs.getInt("hackathonId"),
                 rs.getString("title"),
                 rs.getString("location"),
-                start,
-                end,
-                regStart,
-                regEnd,
+                rs.getTimestamp("startDate").toLocalDateTime(),
+                rs.getTimestamp("endDate").toLocalDateTime(),
+                rs.getTimestamp("registrationStartDate").toLocalDateTime(),
+                rs.getTimestamp("registrationEndDate").toLocalDateTime(),
                 rs.getInt("maxParticipants"),
                 rs.getInt("maxTeamSize"),
                 rs.getString("problemDescription")

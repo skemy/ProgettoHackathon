@@ -42,20 +42,23 @@ public class UserDAOImpl implements UserDAO {
     // ... import e pacchetti ...
 
     @Override
-    public User checkLogin(String email, String password) {
+    public User checkLogin(String loginInput, String password) {
         User loggedUser = null;
-        String queryBase = "SELECT * FROM users WHERE email = ? AND password = ?";
+        // CORREZIONE: Permettiamo il login SIA con l'email CHE con l'username!
+        String queryBase = "SELECT * FROM users WHERE (email = ? OR name = ?) AND password = ?";
 
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(queryBase)) {
 
-            ps.setString(1, email);
-            ps.setString(2, password);
+            ps.setString(1, loginInput);
+            ps.setString(2, loginInput); // Usiamo lo stesso input per entrambi i controlli
+            ps.setString(3, password);
             ResultSet rs = ps.executeQuery();
 
             if (rs.next()) {
                 int id = rs.getInt("userId");
                 String name = rs.getString("name");
+                String email = rs.getString("email");
 
                 // 1. Controlliamo se è un Organizer
                 if (isOrganizer(conn, id)) {
@@ -67,13 +70,12 @@ public class UserDAOImpl implements UserDAO {
                     int hId = getHackathonIdForJudge(conn, id);
                     loggedUser = new Judge(id, name, email, password, hId);
                 }
-                // 3. NUOVO: Controlliamo esplicitamente se è un Participant
+                // 3. Controlliamo se è un Participant
                 else if (isParticipant(conn, id)) {
                     int teamId = getTeamIdForParticipant(conn, id);
-                    // Qui creiamo l'oggetto specifico Participant!
                     loggedUser = new Participant(id, name, email, password, teamId);
                 }
-                // 4. Fallback: È un utente generico (registrato ma senza ruolo attivo)
+                // 4. Fallback: È un utente generico
                 else {
                     loggedUser = new User(id, name, email, password);
                 }

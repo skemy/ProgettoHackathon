@@ -2,18 +2,12 @@ package model;
 
 public class Organizer extends User {
 
-
     private int hackathonId;
 
-    public Organizer(int id, String name, String email, String password, int hId) {
-        super();
+    public Organizer(int userId, String name, String email, String password, int hackathonId) {
+        super(userId, name, email, password); // Passa i dati dell'utente alla classe padre (User)
+        this.hackathonId = hackathonId;       // Salva FINALMENTE l'ID dell'hackathon!
     }
-
-    public Organizer(int userId, String name, String email, String password, int organizerId, int hackathonId) {
-        super(userId, name, email, password);
-        this.hackathonId = hackathonId;
-    }
-
 
     public int getHackathonId() {
         return hackathonId;

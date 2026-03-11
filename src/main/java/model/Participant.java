@@ -5,16 +5,15 @@ public class Participant extends User {
     private int teamId;
     private String role;
 
+    // 1. COSTRUTTORE A 5 PARAMETRI (Quello usato dal tuo UserDAOImpl!)
     public Participant(int id, String name, String email, String password, int teamId) {
-        super();
+        super(id, name, email, password); // Passa i dati alla classe padre User
+        this.teamId = teamId;             // Salva il Team ID
+        // Valore di default se non specificato
     }
 
-    public Participant(int userId, String name, String email, String password, int teamId, String role) {
-        super(userId, name, email, password);
-        this.teamId = teamId;
-        this.role = role;
-    }
 
+    // --- GETTER & SETTER ---
     public int getTeamId() {
         return teamId;
     }
