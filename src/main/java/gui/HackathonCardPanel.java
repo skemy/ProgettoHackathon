@@ -85,8 +85,12 @@ public class HackathonCardPanel {
 
         if (currentHackathon != null) {
             infoLabel.setText("You are currently registered for the event: " + currentHackathon.getTitle());
-            addHackathonInfo(currentHackathon);
 
+            // NOVITÀ: Se è un semplice User, avvisalo che deve andare nella sezione Team!
+            if (controller.getCurrentUser().getClass().equals(model.User.class)) {
+                infoLabel.setText(infoLabel.getText() + " | ⚠️ VAI NELLA SEZIONE 'TEAM' PER CREARE/UNIRTI A UNA SQUADRA!");
+            }
+            addHackathonInfo(currentHackathon);
             if (currentHackathon.getProblemDescription() == null || currentHackathon.getProblemDescription().trim().isEmpty()) {
                 problemStatementTextArea.setText("Problem statement is empty.");
             } else {

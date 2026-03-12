@@ -273,5 +273,63 @@ public class UserDAOImpl implements UserDAO {
             e.printStackTrace();
         }
     }
+    /**
+     * Iscrive un utente base a un Hackathon mettendolo nel "Limbo" (tabella registration).
+     */
+    public void registerUserToHackathon(int userId, int hackathonId) {
+        String query = "INSERT INTO registration (userId, hackathonId) VALUES (?, ?)";
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+
+            ps.setInt(1, userId);
+            ps.setInt(2, hackathonId);
+            ps.executeUpdate();
+            System.out.println("✅ Utente ID " + userId + " registrato all'Hackathon " + hackathonId + " (In attesa di Team).");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Controlla se l'utente base è iscritto a qualche Hackathon e restituisce l'ID dell'evento.
+     * Ritorna -1 se non è iscritto a nulla.
+     */
+    public int getRegisteredHackathonId(int userId) {
+        String query = "SELECT hackathonId FROM registration WHERE userId = ?";
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("hackathonId");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
+
+    /**
+     * LAZY CHECK: Rimuove dal Limbo (tabella registration) tutti gli utenti di un
+     * dato hackathon che non hanno formato o trovato un team entro l'inizio dell'evento.
+     */
+    public void cleanupLimboRegistrations(int hackathonId) {
+        String query = "DELETE FROM registration WHERE hackathonId = ?";
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+
+            ps.setInt(1, hackathonId);
+            int rowsDeleted = ps.executeUpdate();
+
+            if (rowsDeleted > 0) {
+                System.out.println("🧹 [LAZY CHECK] Pulizia eseguita: Estromessi " + rowsDeleted + " utenti senza team dall'evento " + hackathonId);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
 
 }

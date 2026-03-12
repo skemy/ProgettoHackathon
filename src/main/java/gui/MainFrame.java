@@ -41,6 +41,7 @@ public class MainFrame extends JFrame {
     private final Controller controller;
     private final Map<String, JPanel> cardMap = new HashMap<>();
     private CardLayout cardLayout;
+    private HackathonCardPanel hackathonCard;
 
     public MainFrame(Controller controller) {
         this.controller = controller;
@@ -54,9 +55,16 @@ public class MainFrame extends JFrame {
 
         setupCardPanel();
         customizeComponents();
-    }
 
-    private HackathonCardPanel hackathonCard;
+        // 🚨 MOSTRA IL POPUP AL LOGIN SE IL LAZY CHECK LO HA APPENA CACCIATO
+        if (controller.wasRecentlyKicked()) {
+            JOptionPane.showMessageDialog(this,
+                    "Attenzione: L'evento a cui eri iscritto è iniziato e non facevi parte di alcun team.\nLa tua registrazione è stata annullata.",
+                    "Tempo Scaduto",
+                    JOptionPane.WARNING_MESSAGE);
+            controller.resetKickedFlag(); // Resettiamo la memoria del Controller
+        }
+    }
 
     private void setupCardPanel() {
         cardLayout = new CardLayout();
@@ -68,7 +76,7 @@ public class MainFrame extends JFrame {
         hackathonCard = new HackathonCardPanel(controller);
         JPanel hackathonPanel = hackathonCard.getRootPanel();
 
-        // Segnaposti rimanenti
+        // Segnaposti rimanenti (da sostituire con i veri pannelli quando li creeremo)
         JPanel teamPanel = new JPanel(); teamPanel.setBackground(Color.LIGHT_GRAY);
         JPanel managePanel = new JPanel(); managePanel.setBackground(Color.DARK_GRAY);
 
@@ -115,10 +123,10 @@ public class MainFrame extends JFrame {
             @Override public void mouseExited(MouseEvent e) { rDashboardPanel.setBackground(UIColors.NIGHT_BLUE); }
         });
 
-
+        // Tasto Hackathon
         rHackathonPanel.addMouseListener(new MouseAdapter() {
             @Override public void mousePressed(MouseEvent e) {
-                hackathonCard.refreshData(true); // <--- AGGIUNGI IL TRUE QUI
+                hackathonCard.refreshData(true);
                 cardLayout.show(cardPanel, "hackathon");
             }
             @Override public void mouseEntered(MouseEvent e) { rHackathonPanel.setBackground(UIColors.CARMINE_RED); }
@@ -127,14 +135,32 @@ public class MainFrame extends JFrame {
 
         // Tasto Team (Il mio team / Creazione team)
         rTeamPanel.addMouseListener(new MouseAdapter() {
-            @Override public void mousePressed(MouseEvent e) { cardLayout.show(cardPanel, "team"); }
+            @Override public void mousePressed(MouseEvent e) {
+                // GUARDIA BCE: Puoi aprire i Team solo se sei registrato a un Hackathon!
+                if (controller.getCurrentHackathon() == null) {
+                    JOptionPane.showMessageDialog(MainFrame.this,
+                            "Devi prima iscriverti a un Hackathon dalla Dashboard!",
+                            "Accesso Negato", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                cardLayout.show(cardPanel, "team");
+            }
             @Override public void mouseEntered(MouseEvent e) { rTeamPanel.setBackground(UIColors.CARMINE_RED); }
             @Override public void mouseExited(MouseEvent e) { rTeamPanel.setBackground(UIColors.NIGHT_BLUE); }
         });
 
         // Tasto Manage (Solo per Organizer)
         rManagePanel.addMouseListener(new MouseAdapter() {
-            @Override public void mousePressed(MouseEvent e) { cardLayout.show(cardPanel, "manage"); }
+            @Override public void mousePressed(MouseEvent e) {
+                // GUARDIA BCE: Solo l'Organizzatore può gestire l'evento
+                if (!(controller.getCurrentUser() instanceof Organizer)) {
+                    JOptionPane.showMessageDialog(MainFrame.this,
+                            "Area riservata all'Organizzatore dell'evento.",
+                            "Accesso Negato", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                cardLayout.show(cardPanel, "manage");
+            }
             @Override public void mouseEntered(MouseEvent e) { rManagePanel.setBackground(UIColors.CARMINE_RED); }
             @Override public void mouseExited(MouseEvent e) { rManagePanel.setBackground(UIColors.NIGHT_BLUE); }
         });
