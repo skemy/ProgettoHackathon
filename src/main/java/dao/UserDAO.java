@@ -1,55 +1,35 @@
 package dao;
 
-import model.User;
+import model.*;
 import java.util.List;
 
-/**
- * Interfaccia che definisce le operazioni di persistenza per l'entità User.
- * Fornisce i metodi per la gestione dell'autenticazione, della registrazione e del recupero dati.
- */
 public interface UserDAO {
+	// ... metodi esistenti ...
 
 	/**
-	 * Registra un nuovo utente nel sistema.
-	 * @param user L'oggetto User contenente i dati da salvare.
+	 * Rimuove le registrazioni degli utenti che non hanno trovato un team
+	 * prima dell'inizio dell'hackathon.
+	 * @param hackathonId ID dell'evento.
 	 */
-	public abstract void registerUser(User user);
+	void cleanupLimboRegistrations(int hackathonId);
 
 	/**
-	 * Verifica le credenziali di accesso di un utente.
-	 * @param email L'indirizzo email (o username, a seconda della logica) fornito per il login.
-	 * @param password La password fornita per il login.
-	 * @return L'oggetto User se le credenziali sono corrette, null altrimenti.
+	 * Recupera l'ID dell'hackathon per il quale l'utente è registrato come giudice.
+	 * @param userId ID dell'utente.
+	 * @return ID dell'hackathon o -1 se non è un giudice.
 	 */
-	public abstract User checkLogin(String email, String password);
+	int getHackathonIdWhereUserIsJudge(int userId);
 
-	/**
-	 * Recupera un utente specifico tramite il suo identificativo univoco.
-	 * @param id L'ID dell'utente da ricercare.
-	 * @return L'oggetto User trovato o null se non esiste corrispondenza.
-	 */
-	public abstract User getUserById(int id);
 
-	/**
-	 * Restituisce la lista completa di tutti gli utenti registrati.
-	 * @return Una List di oggetti User.
-	 */
-	public abstract List<User> getAllUsers();
-
-	/**
-	 * Verifica se un username è già presente nel database.
-	 * @param username L'username da controllare.
-	 * @return true se esiste già (allarme!), false altrimenti (via libera).
-	 */
-	public abstract boolean isUsernameAlreadyRegistered(String username);
-
-	/**
-	 * Verifica se un'email è già presente nel database.
-	 * @param email L'email da controllare.
-	 * @return true se esiste già (allarme!), false altrimenti (via libera).
-	 */
-	public abstract boolean isEmailAlreadyRegistered(String email);
-
-	public abstract void promoteToOrganizer(int userId, int hackathonId);
-	public int getRegisteredHackathonId(int userId);
+	void registerUser(User user);
+	User checkLogin(String loginInput, String password);
+	boolean isEmailAlreadyRegistered(String email);
+	boolean isUsernameAlreadyRegistered(String username);
+	void registerUserToHackathon(int userId, int hackathonId);
+	List<User> getUsersInLimboByHackathon(int hackathonId);
+	boolean promoteToJudge(int userId, int hackathonId);
+	void removeFromLimbo(int userId, int hackathonId);
+	User getUserById(int userId);
+	int getRegisteredHackathonId(int userId);
+	void promoteToOrganizer(int userId, int hackathonId);
 }

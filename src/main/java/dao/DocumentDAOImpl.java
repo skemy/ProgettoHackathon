@@ -4,45 +4,43 @@ import database.ConnessioneDatabase;
 import model.Document;
 
 import java.sql.*;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Implementazione dell'interfaccia DocumentDAO per PostgreSQL.
- * Gestisce il ciclo di vita dei documenti caricati dai team, inclusi link a repository e demo.
+ * Gestisce il ciclo di vita dei documenti (link, repository, demo) caricati dai team.
+ * <p>
+ * Nota Architetturale: Questa classe racchiude la logica di accesso ai dati.
+ * Utilizza blocchi try-with-resources per garantire il rilascio automatico e sicuro
+ * di Connessioni, Statement e ResultSet, prevenendo Resource Leaks (standard SonarQube).
  */
 public class DocumentDAOImpl implements DocumentDAO {
 
-    /**
-     * Carica un nuovo link nel database.
-     * * @param doc L'oggetto Document da persistere.
-     */
+    private static final Logger LOGGER = Logger.getLogger(DocumentDAOImpl.class.getName());
+
     @Override
     public void uploadDocument(Document doc) {
-        String query = "INSERT INTO document (name, documentLink, description, uploadDate, teamId) VALUES (?, ?, ?, ?)";
+        String query = "INSERT INTO document (documentLink, description, teamId, uploadDate) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
 
-            ps.setString(1, doc.getName());
-            ps.setString(2, doc.getUrl());
-            ps.setTimestamp(3, Timestamp.valueOf(doc.getUploadDate()));
-
-            ps.setInt(4, doc.getTeamId());
+            ps.setString(1, doc.getUrl());      // Mappato su documentLink
+            ps.setString(2, doc.getName());     // Mappato su description
+            ps.setInt(3, doc.getTeamId());
+            ps.setTimestamp(4, Timestamp.valueOf(doc.getUploadDate()));
 
             ps.executeUpdate();
-            System.out.println("✅ Documento caricato per il Team ID: " + doc.getTeamId());
+            LOGGER.log(Level.INFO, "Documento salvato con successo per il Team ID: {0}", doc.getTeamId());
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Errore durante l'upload del documento", e);
         }
     }
-    /**
-     * Recupera tutti i documenti associati a un team specifico.
-     * * @param teamId L'ID del team di cui recuperare i documenti.
-     * @return Una lista di oggetti Document.
-     */
+
     @Override
     public List<Document> getDocumentsByTeam(int teamId) {
         List<Document> docs = new ArrayList<>();
@@ -52,78 +50,72 @@ public class DocumentDAOImpl implements DocumentDAO {
              PreparedStatement ps = conn.prepareStatement(query)) {
 
             ps.setInt(1, teamId);
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                docs.add(mapResultSetToDocument(rs));
+            // FIX SonarQube: Inserimento del ResultSet nel try-with-resources per evitare Memory Leaks
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    docs.add(mapResultSetToDocument(rs));
+                }
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Errore nel recupero dei documenti per il Team ID: " + teamId, e);
         }
         return docs;
     }
 
-    /**
-     * Recupera un singolo documento tramite il suo identificativo.
-     * * @param documentId L'ID del documento da cercare.
-     * @return L'oggetto Document popolato, o null se non trovato.
-     */
     @Override
     public Document getDocumentById(int documentId) {
         String query = "SELECT * FROM document WHERE documentId = ?";
+
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
 
             ps.setInt(1, documentId);
-            ResultSet rs = ps.executeQuery();
-
-            if (rs.next()) {
-                return mapResultSetToDocument(rs);
+            // FIX SonarQube: ResultSet protetto per rilascio risorse automatico
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToDocument(rs);
+                }
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Errore nel recupero del documento ID: " + documentId, e);
         }
         return null;
     }
 
-    /**
-     * Rimuove un documento dal database.
-     * * @param documentId L'ID del documento da eliminare.
-     */
     @Override
     public void deleteDocument(int documentId) {
         String query = "DELETE FROM document WHERE documentId = ?";
+
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
 
             ps.setInt(1, documentId);
             ps.executeUpdate();
-            System.out.println("🗑️ Documento eliminato: " + documentId);
+            LOGGER.log(Level.INFO, "Documento eliminato con successo. ID: {0}", documentId);
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Errore durante l'eliminazione del documento ID: " + documentId, e);
         }
     }
 
     /**
-     * Helper per convertire il ResultSet in un oggetto Document.
+     * Helper privato per la conversione (Object-Relational Mapping manuale).
      * Estrae i dati SQL e li mappa nel modello Java.
-     * * @param rs Il ResultSet posizionato sulla riga corrente.
-     * @return Un'istanza di Document.
-     * @throws SQLException In caso di errore nell'estrazione dei dati.
+     *
+     * @param rs Il ResultSet posizionato sulla riga corrente.
+     * @return Un'istanza di Document popolata.
+     * @throws SQLException In caso di errore di lettura dal database.
      */
     private Document mapResultSetToDocument(ResultSet rs) throws SQLException {
-        LocalDateTime uploadDate = rs.getTimestamp("uploadDate").toLocalDateTime();
-
         return new Document(
                 rs.getInt("documentId"),
-                rs.getString("name"),
-                rs.getString("url"),
-                uploadDate,
+                rs.getString("description"),
+                rs.getString("documentLink"),
+                rs.getTimestamp("uploadDate").toLocalDateTime(),
                 rs.getInt("teamId"),
-                rs.getInt("hackathonId")
+                0 // Nota Architetturale: La tabella non traccia l'hackathonId direttamente, impostiamo un default neutrale.
         );
     }
 }

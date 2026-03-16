@@ -3,8 +3,13 @@ package model;
 import java.time.LocalDateTime;
 
 /**
- * Rappresenta il feedback fornito da un giudice in merito a un documento specifico.
- * Contiene il commento testuale, la data di inserimento e i riferimenti al giudice e al documento.
+ * Rappresenta l'entità di dominio Feedback.
+ * Contiene le valutazioni fornite dai giudici sui documenti sottomessi dai team.
+ * <p>
+ * Nota Architetturale: Il campo {@code judgeName} agisce da Data Transfer Object (DTO) intrinseco.
+ * Viene popolato dal layer DAO tramite un'operazione di JOIN SQL per trasportare il nome
+ * fino alla View (Boundary) in una singola operazione, riducendo il carico sul database
+ * ed evitando query ausiliarie (N+1 query problem).
  */
 public class Feedback {
 
@@ -13,19 +18,22 @@ public class Feedback {
     private LocalDateTime date;
     private int judgeId;
     private int documentId;
+    private String judgeName;
 
     /**
-     * Costruttore vuoto della classe Feedback.
+     * Costruttore vuoto di default.
      */
-    public Feedback() {}
+    public Feedback() {
+    }
 
     /**
-     * Costruttore completo della classe Feedback.
-     * * @param feedbackId L'ID univoco del feedback.
-     * @param comment Il testo del feedback fornito dal giudice.
-     * @param date La data e l'ora in cui il feedback è stato registrato.
-     * @param judgeId L'ID dell'utente (Giudice) che ha rilasciato il feedback.
-     * @param documentId L'ID del documento a cui il feedback si riferisce.
+     * Costruttore principale per la persistenza e il recupero dell'entità nativa.
+     *
+     * @param feedbackId L'ID univoco del feedback.
+     * @param comment    Il testo della valutazione.
+     * @param date       La data in cui il feedback è stato rilasciato.
+     * @param judgeId    L'ID del giudice autore della valutazione.
+     * @param documentId L'ID del documento valutato.
      */
     public Feedback(int feedbackId, String comment, LocalDateTime date, int judgeId, int documentId) {
         this.feedbackId = feedbackId;
@@ -36,81 +44,89 @@ public class Feedback {
     }
 
     /**
-     * @return L'ID univoco del feedback.
+     * Costruttore orientato alla visualizzazione (View-Model).
+     * Utilizzato dal layer DAO per istanziare oggetti arricchiti con il nome del giudice.
+     *
+     * @param comment   Il testo della valutazione.
+     * @param judgeName Il nome completo del giudice, recuperato tramite JOIN.
+     * @param date      La data di rilascio del feedback.
      */
-    public int getFeedbackId() {
-        return feedbackId;
-    }
-
-    /**
-     * @param feedbackId L'ID univoco da assegnare al feedback.
-     */
-    public void setFeedbackId(int feedbackId) {
-        this.feedbackId = feedbackId;
-    }
-
-    /**
-     * @return Il commento del giudice.
-     */
-    public String getComment() {
-        return comment;
-    }
-
-    /**
-     * @param comment Il testo del commento da impostare.
-     */
-    public void setComment(String comment) {
+    public Feedback(String comment, String judgeName, LocalDateTime date) {
         this.comment = comment;
-    }
-
-    /**
-     * @return La data e l'ora del feedback.
-     */
-    public LocalDateTime getDate() {
-        return date;
-    }
-
-    /**
-     * @param date La data e l'ora da associare al feedback.
-     */
-    public void setDate(LocalDateTime date) {
+        this.judgeName = judgeName;
         this.date = date;
     }
 
-    /**
-     * @return L'ID dell'utente giudice.
-     */
-    public int getJudgeId() {
-        return judgeId;
-    }
+    // --- GETTERS & SETTERS ---
 
     /**
-     * @param judgeId L'ID dell'utente giudice da associare.
+     * @return L'ID univoco del feedback.
      */
-    public void setJudgeId(int judgeId) {
-        this.judgeId = judgeId;
-    }
+    public int getFeedbackId() { return feedbackId; }
+
+    /**
+     * @param feedbackId L'ID univoco da assegnare.
+     */
+    public void setFeedbackId(int feedbackId) { this.feedbackId = feedbackId; }
+
+    /**
+     * @return Il corpo testuale della valutazione.
+     */
+    public String getComment() { return comment; }
+
+    /**
+     * @param comment Il testo della valutazione.
+     */
+    public void setComment(String comment) { this.comment = comment; }
+
+    /**
+     * @return La data di emissione del feedback.
+     */
+    public LocalDateTime getDate() { return date; }
+
+    /**
+     * @param date La data da impostare.
+     */
+    public void setDate(LocalDateTime date) { this.date = date; }
+
+    /**
+     * @return L'ID del giudice associato.
+     */
+    public int getJudgeId() { return judgeId; }
+
+    /**
+     * @param judgeId L'ID del giudice da registrare.
+     */
+    public void setJudgeId(int judgeId) { this.judgeId = judgeId; }
 
     /**
      * @return L'ID del documento valutato.
      */
-    public int getDocumentId() {
-        return documentId;
-    }
+    public int getDocumentId() { return documentId; }
 
     /**
      * @param documentId L'ID del documento da associare.
      */
-    public void setDocumentId(int documentId) {
-        this.documentId = documentId;
-    }
+    public void setDocumentId(int documentId) { this.documentId = documentId; }
 
     /**
-     * Restituisce una rappresentazione testuale dell'oggetto Feedback.
-     * * @return Stringa contenente ID e commento.
+     * @return Il nome del giudice (aggregato in fase di fetch).
+     */
+    public String getJudgeName() { return judgeName; }
+
+    /**
+     * @param judgeName Il nome del giudice da associare all'istanza.
+     */
+    public void setJudgeName(String judgeName) { this.judgeName = judgeName; }
+
+    /**
+     * Restituisce una rappresentazione in formato stringa dell'oggetto,
+     * utile esclusivamente a fini di log o debug.
+     *
+     * @return La stringa formattata contenente i dati principali.
      */
     @Override
     public String toString() {
-        return "Feedback [ID=" + feedbackId + ", Commento=" + comment + "]";
+        return "Feedback [id=" + feedbackId + ", comment=" + comment + "]";
     }
 }

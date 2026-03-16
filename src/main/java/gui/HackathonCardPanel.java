@@ -1,16 +1,22 @@
 package gui;
 
+import com.intellij.uiDesigner.core.GridConstraints;
+import com.intellij.uiDesigner.core.GridLayoutManager;
+import com.intellij.uiDesigner.core.Spacer;
 import controller.Controller;
 import model.Hackathon;
-import model.Team;
 import utils.RoundedPanel;
 import utils.UIColors;
 
 import javax.swing.*;
+import javax.swing.plaf.FontUIResource;
+import javax.swing.text.StyleContext;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 public class HackathonCardPanel {
     private JPanel rootPanel;
@@ -65,240 +71,531 @@ public class HackathonCardPanel {
 
     public HackathonCardPanel(Controller controller) {
         this.controller = controller;
-
-        // Inizializza i componenti personalizzati
-        createUIComponents();
-
-        // Configura colori e scrolling
+        $$$setupUI$$$();
         customizeComponents();
-
-        // Collega i tasti (Edit e Publish)
-        setupREditPanel();
-        setupRPublishPanel();
-
-        // Carica i dati dal DB
+        setupEditLogic();
+        setupRankingLogic();
         refreshData(false);
     }
 
+    /**
+     * Spostiamo la stringa HTML qui per non appesantire il compilatore della GUI.
+     */
+    private String getRankingRulesHtml() {
+        return "<html><div style='text-align: left; color: gray; font-size: 10px; margin-bottom: 5px; width: 100%;'>" +
+                "<b>Ranking Criteria:</b><br>" +
+                "1. Highest Average Score.<br>" +
+                "2. Total Documents Uploaded (Tie-breaker).<br>" +
+                "3. Alphabetical Order.<br>" +
+                "<i>Note: Teams without uploaded documents receive a score of 0.</i></div></html>";
+    }
+
     public void refreshData(boolean showPopup) {
-        Hackathon currentHackathon = controller.getCurrentHackathon();
-
-        if (currentHackathon != null) {
-            infoLabel.setText("You are currently registered for the event: " + currentHackathon.getTitle());
-
-            // NOVITÀ: Se è un semplice User, avvisalo che deve andare nella sezione Team!
-            if (controller.getCurrentUser().getClass().equals(model.User.class)) {
-                infoLabel.setText(infoLabel.getText() + " | ⚠️ VAI NELLA SEZIONE 'TEAM' PER CREARE/UNIRTI A UNA SQUADRA!");
-            }
-            addHackathonInfo(currentHackathon);
-            if (currentHackathon.getProblemDescription() == null || currentHackathon.getProblemDescription().trim().isEmpty()) {
-                problemStatementTextArea.setText("Problem statement is empty.");
-            } else {
-                problemStatementTextArea.setText(currentHackathon.getProblemDescription());
-            }
-        } else {
+        Hackathon current = controller.getCurrentHackathon();
+        if (current == null) {
             infoLabel.setText("You are currently not registered for an event.");
-            titleContentLabel.setText("N/A");
-            locationContentLabel.setText("N/A");
-            startDateContentLabel.setText("N/A");
-            endDateContentLabel.setText("N/A");
-            deadlineContentLabel.setText("N/A");
-            maxParticipantsContentLabel.setText("N/A");
-            maxTeamSizeContentLabel.setText("N/A");
-            organizerContentLabel.setText("N/A");
-            problemStatementTextArea.setText("No hackathon loaded.");
+            clearFields();
+            rPublishPanel.setVisible(false);
+            rankingListPanel.removeAll();
+            return;
         }
+
+        infoLabel.setText("Active Event: " + current.getTitle());
+        populateFields(current);
+        problemStatementTextArea.setText((current.getProblemDescription() == null || current.getProblemDescription().isBlank()) ?
+                "The problem statement is currently not available." : current.getProblemDescription());
+
+        rankingListPanel.removeAll();
+        if (rankingInfoLabel != null) rankingInfoLabel.setVisible(false);
+
+        boolean isEventOver = LocalDateTime.now().isAfter(current.getEndDate());
+        if (isEventOver) {
+            rPublishPanel.setVisible(false);
+            loadRanking(true);
+        } else if (controller.isCurrentUserOrganizer()) {
+            rPublishPanel.setVisible(true);
+            publishLabel.setText("Refresh Live Ranking");
+            loadRanking(false);
+        } else {
+            rPublishPanel.setVisible(false);
+            JLabel pendingLabel = new JLabel("<html><i>The event is still ongoing. Results pending.</i></html>");
+            pendingLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            rankingListPanel.add(pendingLabel);
+        }
+
+        disableEditingUI();
+        rankingListPanel.revalidate();
+        rankingListPanel.repaint();
     }
 
     private void customizeComponents() {
-        setupScrollPanel();
+        scrollPanel.setBorder(null);
+        scrollPanel.getVerticalScrollBar().setPreferredSize(new Dimension(5, 0));
 
-        // Colori Labels e Pannelli
-        hackathonLabel.setForeground(UIColors.NIGHT_BLUE);
-        infoLabel.setForeground(UIColors.CARMINE_RED);
-        overviewLabel.setForeground(UIColors.CARMINE_RED);
-
-        rTitlePanel.setBackground(UIColors.LIGHT_GRAY);
-        rLocationPanel.setBackground(UIColors.LIGHT_GRAY);
-        rStartDatePanel.setBackground(UIColors.LIGHT_GRAY);
-        rEndDatePanel.setBackground(UIColors.LIGHT_GRAY);
-        rDeadlinePanel.setBackground(UIColors.LIGHT_GRAY);
-        rMaxParticipantsPanel.setBackground(UIColors.LIGHT_GRAY);
-        rMaxTeamSizePanel.setBackground(UIColors.LIGHT_GRAY);
-        rOrganizerPanel.setBackground(UIColors.LIGHT_GRAY);
-
-        rTitleContentPanel.setBackground(Color.WHITE);
-        rLocationContentPanel.setBackground(Color.WHITE);
-        rStartDateContentPanel.setBackground(Color.WHITE);
-        rEndDateContentPanel.setBackground(Color.WHITE);
-        rDeadlineContentPanel.setBackground(Color.WHITE);
-        rMaxParticipantsContentPanel.setBackground(Color.WHITE);
-        rMaxTeamSizeContentPanel.setBackground(Color.WHITE);
-        rOrganizerContentPanel.setBackground(Color.WHITE);
-
-        // Problem Statement
-        problemStatementLabel.setForeground(UIColors.CARMINE_RED);
         rEditPanel.setBackground(UIColors.NIGHT_BLUE);
         editLabel.setForeground(Color.WHITE);
-        problemStatementTextArea.setBackground(null);
-        problemStatementTextArea.setForeground(Color.DARK_GRAY);
-
-        // Ranking
-        rankingLabel.setForeground(UIColors.CARMINE_RED);
-        rankingInfoLabel.setForeground(Color.GRAY);
         rPublishPanel.setBackground(UIColors.NIGHT_BLUE);
         publishLabel.setForeground(Color.WHITE);
 
-        setupRankingListPanel();
-        SwingUtilities.invokeLater(() -> scrollPanel.getVerticalScrollBar().setValue(0));
+        problemStatementTextArea.setLineWrap(true);
+        problemStatementTextArea.setWrapStyleWord(true);
+        problemStatementTextArea.setOpaque(false);
+
+        hackathonLabel.setForeground(UIColors.NIGHT_BLUE);
+        infoLabel.setForeground(UIColors.CARMINE_RED);
+        overviewLabel.setForeground(UIColors.CARMINE_RED);
+        rankingLabel.setForeground(UIColors.CARMINE_RED);
+
+        rankingListPanel.setLayout(new BoxLayout(rankingListPanel, BoxLayout.Y_AXIS));
+        rankingListPanel.setBackground(Color.WHITE);
     }
 
-    private void setupREditPanel() {
-        // Garantisce che l'area sia bloccata all'avvio
+    private void disableEditingUI() {
+        isEditingMode = false;
         problemStatementTextArea.setEditable(false);
-        problemStatementTextArea.setFocusable(false);
-
-        // Mouse Listener condiviso per pannello e label
-        MouseAdapter editHandler = new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                // Controllo Sicurezza BCE
-                if (!controller.isCurrentUserJudge()) {
-                    JOptionPane.showMessageDialog(null,
-                            "Only a Judge can edit the Problem Statement.",
-                            "Access Restricted",
-                            JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-
-                if (!isEditingMode) {
-                    // Modalità MODIFICA
-                    isEditingMode = true;
-                    problemStatementTextArea.setEditable(true);
-                    problemStatementTextArea.setFocusable(true);
-                    problemStatementTextArea.requestFocus();
-                    problemStatementTextArea.setBackground(Color.WHITE);
-                    problemStatementTextArea.setBorder(BorderFactory.createLineBorder(UIColors.CARMINE_RED, 1));
-
-                    editLabel.setText("Save");
-                    rEditPanel.setBackground(new Color(46, 204, 113)); // Verde
-                } else {
-                    // Modalità SALVATAGGIO
-                    String newText = problemStatementTextArea.getText().trim();
-                    if (controller.updateHackathonProblem(newText)) {
-                        isEditingMode = false;
-                        problemStatementTextArea.setEditable(false);
-                        problemStatementTextArea.setFocusable(false);
-                        problemStatementTextArea.setBackground(null);
-                        problemStatementTextArea.setBorder(null);
-                        editLabel.setText("Edit");
-                        rEditPanel.setBackground(UIColors.NIGHT_BLUE);
-                        JOptionPane.showMessageDialog(null, "Saved successfully!");
-                    }
-                }
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                if (!isEditingMode) rEditPanel.setBackground(UIColors.CARMINE_RED);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                if (!isEditingMode) rEditPanel.setBackground(UIColors.NIGHT_BLUE);
-            }
-        };
-
-        // COLLEGA IL LISTENER A ENTRAMBI (Importante!)
-        rEditPanel.addMouseListener(editHandler);
-        editLabel.addMouseListener(editHandler);
-        rEditPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        editLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        editLabel.setText("Edit");
+        rEditPanel.setBackground(UIColors.NIGHT_BLUE);
     }
 
-    private void setupRPublishPanel() {
-        MouseAdapter publishHandler = new MouseAdapter() {
+    private void setupEditLogic() {
+        rEditPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                // Controllo Sicurezza BCE
-                if (!controller.isCurrentUserJudge()) {
-                    JOptionPane.showMessageDialog(null,
-                            "Only a Judge can publish the ranking.",
-                            "Access Restricted",
-                            JOptionPane.WARNING_MESSAGE);
+                if (!controller.isCurrentUserOrganizer()) {
+                    JOptionPane.showMessageDialog(rootPanel, "Only the Organizer can modify the Problem Statement.", "Privilege Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
+                handleEditToggle();
+            }
+        });
+    }
 
-                // Logica Classifica (Solo per Giudici)
-                List<Team> rankedTeams = controller.getRankedTeams();
-                rankingListPanel.removeAll();
-
-                if (rankedTeams != null && !rankedTeams.isEmpty()) {
-                    for (int i = 0; i < rankedTeams.size(); i++) {
-                        rankingListPanel.add(createRankingCard(i + 1, rankedTeams.get(i).getTeamName()));
-                        rankingListPanel.add(Box.createVerticalStrut(10));
-                    }
-                } else {
-                    rankingListPanel.add(new JLabel("No ranking data available."));
+    private void handleEditToggle() {
+        if (!isEditingMode) {
+            isEditingMode = true;
+            problemStatementTextArea.setEditable(true);
+            problemStatementTextArea.setBackground(Color.WHITE);
+            problemStatementTextArea.setOpaque(true);
+            editLabel.setText("Save");
+            rEditPanel.setBackground(new Color(46, 204, 113));
+        } else {
+            if (JOptionPane.showConfirmDialog(rootPanel, "Save new Problem Statement?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                if (controller.updateHackathonProblem(problemStatementTextArea.getText())) {
+                    disableEditingUI();
+                    problemStatementTextArea.setOpaque(false);
                 }
+            }
+        }
+    }
 
+    private void setupRankingLogic() {
+        rPublishPanel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (!controller.isCurrentUserOrganizer()) return;
+                rankingListPanel.removeAll();
+                loadRanking(false);
                 rankingListPanel.revalidate();
                 rankingListPanel.repaint();
             }
-
-            @Override
-            public void mouseEntered(MouseEvent e) { rPublishPanel.setBackground(UIColors.CARMINE_RED); }
-            @Override
-            public void mouseExited(MouseEvent e) { rPublishPanel.setBackground(UIColors.NIGHT_BLUE); }
-        };
-
-        rPublishPanel.addMouseListener(publishHandler);
-        publishLabel.addMouseListener(publishHandler);
-        rPublishPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        publishLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        });
     }
 
-    // --- ALTRI METODI DI SUPPORTO (Scroll, Info, ecc.) ---
-    private void setupScrollPanel() {
-        scrollPanel.setBorder(null);
-        scrollPanel.getVerticalScrollBar().setPreferredSize(new Dimension(0, 0));
-        scrollPanel.getVerticalScrollBar().setUnitIncrement(10);
+    private void loadRanking(boolean isFinal) {
+        JLabel rulesLabel = new JLabel(getRankingRulesHtml());
+        rulesLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rankingListPanel.add(rulesLabel);
+        rankingListPanel.add(Box.createVerticalStrut(10));
+
+        try {
+            List<String> rankedTeams = isFinal ? controller.getFinalRanking() : controller.getLiveRankingForOrganizer();
+            if (rankedTeams != null && !rankedTeams.isEmpty()) {
+                for (String rankRow : rankedTeams) {
+                    RoundedPanel card = createRankingCard(rankRow);
+                    card.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    rankingListPanel.add(card);
+                    rankingListPanel.add(Box.createVerticalStrut(5));
+                }
+            }
+        } catch (Exception ex) {
+            rankingListPanel.add(new JLabel("<html><i>" + ex.getMessage() + "</i></html>"));
+        }
     }
 
-    private void setupRankingListPanel() {
-        rankingListPanel.setLayout(new BoxLayout(rankingListPanel, BoxLayout.Y_AXIS));
+    private void populateFields(Hackathon h) {
+        titleContentLabel.setText(h.getTitle());
+        locationContentLabel.setText(h.getLocation());
+        startDateContentLabel.setText(h.getStartDate().toLocalDate().toString());
+        endDateContentLabel.setText(h.getEndDate().toLocalDate().toString());
+        deadlineContentLabel.setText(h.getRegistrationEndDate().toLocalDate().toString());
+        maxParticipantsContentLabel.setText(String.valueOf(h.getMaxParticipants()));
+        maxTeamSizeContentLabel.setText(String.valueOf(h.getMaxTeamSize()));
+        organizerContentLabel.setText("@" + controller.getOrganizerNameForHackathon(h.getHackathonId()));
     }
 
-    private void addHackathonInfo(Hackathon hackathon) {
-        titleContentLabel.setText(hackathon.getTitle());
-        locationContentLabel.setText(hackathon.getLocation());
-        startDateContentLabel.setText(hackathon.getStartDate().toString());
-        endDateContentLabel.setText(hackathon.getEndDate().toString());
-        deadlineContentLabel.setText(hackathon.getRegistrationEndDate().toString());
-        maxParticipantsContentLabel.setText(String.valueOf(hackathon.getMaxParticipants()));
-        maxTeamSizeContentLabel.setText(String.valueOf(hackathon.getMaxTeamSize()));
-        organizerContentLabel.setText("@" + controller.getOrganizerNameForHackathon(hackathon.getHackathonId()));
+    private void clearFields() {
+        titleContentLabel.setText("-");
+        locationContentLabel.setText("-");
+        startDateContentLabel.setText("-");
+        endDateContentLabel.setText("-");
+        deadlineContentLabel.setText("-");
+        maxParticipantsContentLabel.setText("-");
+        maxTeamSizeContentLabel.setText("-");
+        organizerContentLabel.setText("-");
     }
 
-    private RoundedPanel createRankingCard(int rank, String name) {
+    private RoundedPanel createRankingCard(String rankText) {
         RoundedPanel card = new RoundedPanel();
         card.setLayout(new FlowLayout(FlowLayout.LEFT));
-        card.setBackground(Color.WHITE);
-        card.add(new JLabel(rank + "° " + name));
+        card.setBackground(UIColors.LIGHT_GRAY);
+        JLabel label = new JLabel("<html><b>" + rankText + "</b></html>");
+        label.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        label.setForeground(UIColors.NIGHT_BLUE);
+        card.add(label);
         return card;
     }
 
     private void createUIComponents() {
-        rTitlePanel = new RoundedPanel(); rLocationPanel = new RoundedPanel();
-        rStartDatePanel = new RoundedPanel(); rEndDatePanel = new RoundedPanel();
-        rDeadlinePanel = new RoundedPanel(); rMaxParticipantsPanel = new RoundedPanel();
-        rMaxTeamSizePanel = new RoundedPanel(); rOrganizerPanel = new RoundedPanel();
-        rTitleContentPanel = new RoundedPanel(); rLocationContentPanel = new RoundedPanel();
-        rStartDateContentPanel = new RoundedPanel(); rEndDateContentPanel = new RoundedPanel();
-        rDeadlineContentPanel = new RoundedPanel(); rMaxParticipantsContentPanel = new RoundedPanel();
-        rMaxTeamSizeContentPanel = new RoundedPanel(); rOrganizerContentPanel = new RoundedPanel();
-        rEditPanel = new RoundedPanel(); rPublishPanel = new RoundedPanel();
+        rTitlePanel = new RoundedPanel();
+        rLocationPanel = new RoundedPanel();
+        rStartDatePanel = new RoundedPanel();
+        rEndDatePanel = new RoundedPanel();
+        rDeadlinePanel = new RoundedPanel();
+        rMaxParticipantsPanel = new RoundedPanel();
+        rMaxTeamSizePanel = new RoundedPanel();
+        rOrganizerPanel = new RoundedPanel();
+        rTitleContentPanel = new RoundedPanel();
+        rLocationContentPanel = new RoundedPanel();
+        rStartDateContentPanel = new RoundedPanel();
+        rEndDateContentPanel = new RoundedPanel();
+        rDeadlineContentPanel = new RoundedPanel();
+        rMaxParticipantsContentPanel = new RoundedPanel();
+        rMaxTeamSizeContentPanel = new RoundedPanel();
+        rOrganizerContentPanel = new RoundedPanel();
+        rEditPanel = new RoundedPanel();
+        rPublishPanel = new RoundedPanel();
     }
 
-    public JPanel getRootPanel() { return rootPanel; }
+    public JPanel getRootPanel() {
+        return rootPanel;
+    }
+
+    /**
+     * Method generated by IntelliJ IDEA GUI Designer
+     * >>> IMPORTANT!! <<<
+     * DO NOT edit this method OR call it in your code!
+     *
+     * @noinspection ALL
+     */
+    private void $$$setupUI$$$() {
+        createUIComponents();
+        rootPanel = new JPanel();
+        rootPanel.setLayout(new GridLayoutManager(1, 1, new Insets(20, 20, 20, 20), -1, -1));
+        rootPanel.setPreferredSize(new Dimension(-1, -1));
+        final JPanel panel1 = new JPanel();
+        panel1.setLayout(new BorderLayout(0, 0));
+        rootPanel.add(panel1, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JPanel panel2 = new JPanel();
+        panel2.setLayout(new GridLayoutManager(3, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel2.setAlignmentY(0.5f);
+        panel1.add(panel2, BorderLayout.NORTH);
+        final JPanel panel3 = new JPanel();
+        panel3.setLayout(new GridLayoutManager(1, 2, new Insets(0, 0, 0, 0), -1, -1));
+        panel2.add(panel3, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JPanel panel4 = new JPanel();
+        panel4.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel3.add(panel4, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        hackathonLabel = new JLabel();
+        Font hackathonLabelFont = this.$$$getFont$$$(null, -1, 26, hackathonLabel.getFont());
+        if (hackathonLabelFont != null) hackathonLabel.setFont(hackathonLabelFont);
+        hackathonLabel.setText("Hackathon");
+        panel4.add(hackathonLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer1 = new Spacer();
+        panel3.add(spacer1, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel5 = new JPanel();
+        panel5.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel2.add(panel5, new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        infoLabel = new JLabel();
+        infoLabel.setText("You're currently not registered for an event.");
+        panel5.add(infoLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final JPanel panel6 = new JPanel();
+        panel6.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel2.add(panel6, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JSeparator separator1 = new JSeparator();
+        panel6.add(separator1, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        scrollPanel = new JScrollPane();
+        scrollPanel.setAlignmentY(0.5f);
+        panel1.add(scrollPanel, BorderLayout.CENTER);
+        final JPanel panel7 = new JPanel();
+        panel7.setLayout(new GridLayoutManager(17, 1, new Insets(0, 0, 0, 0), -1, -1));
+        scrollPanel.setViewportView(panel7);
+        final JPanel panel8 = new JPanel();
+        panel8.setLayout(new GridLayoutManager(1, 3, new Insets(10, 0, 10, 0), -1, -1));
+        panel7.add(panel8, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JPanel panel9 = new JPanel();
+        panel9.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel8.add(panel9, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        overviewLabel = new JLabel();
+        Font overviewLabelFont = this.$$$getFont$$$(null, -1, 18, overviewLabel.getFont());
+        if (overviewLabelFont != null) overviewLabel.setFont(overviewLabelFont);
+        overviewLabel.setText("Overview");
+        panel9.add(overviewLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer2 = new Spacer();
+        panel8.add(spacer2, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel10 = new JPanel();
+        panel10.setLayout(new GridLayoutManager(1, 1, new Insets(5, 5, 5, 5), -1, -1));
+        panel8.add(panel10, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        final Spacer spacer3 = new Spacer();
+        panel7.add(spacer3, new GridConstraints(16, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        final JPanel panel11 = new JPanel();
+        panel11.setLayout(new GridLayoutManager(1, 3, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel11, new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rTitlePanel.setLayout(new GridLayoutManager(1, 3, new Insets(1, 10, 1, 2), -1, -1));
+        panel11.add(rTitlePanel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 35), new Dimension(-1, 35), new Dimension(-1, 35), 0, false));
+        titleLabel = new JLabel();
+        Font titleLabelFont = this.$$$getFont$$$(null, -1, -1, titleLabel.getFont());
+        if (titleLabelFont != null) titleLabel.setFont(titleLabelFont);
+        titleLabel.setText("Title");
+        rTitlePanel.add(titleLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rTitleContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
+        rTitlePanel.add(rTitleContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        titleContentLabel = new JLabel();
+        Font titleContentLabelFont = this.$$$getFont$$$(null, -1, -1, titleContentLabel.getFont());
+        if (titleContentLabelFont != null) titleContentLabel.setFont(titleContentLabelFont);
+        titleContentLabel.setText("sample_text");
+        rTitleContentPanel.add(titleContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer4 = new Spacer();
+        rTitlePanel.add(spacer4, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final Spacer spacer5 = new Spacer();
+        panel11.add(spacer5, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel12 = new JPanel();
+        panel12.setLayout(new GridLayoutManager(1, 3, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel12, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rLocationPanel.setLayout(new GridLayoutManager(1, 3, new Insets(1, 10, 1, 2), -1, -1));
+        panel12.add(rLocationPanel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 35), new Dimension(-1, 35), new Dimension(-1, 35), 0, false));
+        locationLabel = new JLabel();
+        Font locationLabelFont = this.$$$getFont$$$(null, -1, -1, locationLabel.getFont());
+        if (locationLabelFont != null) locationLabel.setFont(locationLabelFont);
+        locationLabel.setText("Location");
+        rLocationPanel.add(locationLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rLocationContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
+        rLocationPanel.add(rLocationContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        locationContentLabel = new JLabel();
+        locationContentLabel.setText("sample_text");
+        rLocationContentPanel.add(locationContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer6 = new Spacer();
+        rLocationPanel.add(spacer6, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final Spacer spacer7 = new Spacer();
+        panel12.add(spacer7, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel13 = new JPanel();
+        panel13.setLayout(new GridLayoutManager(1, 3, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel13, new GridConstraints(3, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rStartDatePanel.setLayout(new GridLayoutManager(1, 3, new Insets(1, 10, 1, 2), -1, -1));
+        panel13.add(rStartDatePanel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 35), new Dimension(-1, 35), new Dimension(-1, 35), 0, false));
+        startDateLabel = new JLabel();
+        Font startDateLabelFont = this.$$$getFont$$$(null, -1, -1, startDateLabel.getFont());
+        if (startDateLabelFont != null) startDateLabel.setFont(startDateLabelFont);
+        startDateLabel.setText("Start Date");
+        rStartDatePanel.add(startDateLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rStartDateContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
+        rStartDatePanel.add(rStartDateContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        startDateContentLabel = new JLabel();
+        startDateContentLabel.setText("sample_text");
+        rStartDateContentPanel.add(startDateContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer8 = new Spacer();
+        rStartDatePanel.add(spacer8, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final Spacer spacer9 = new Spacer();
+        panel13.add(spacer9, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel14 = new JPanel();
+        panel14.setLayout(new GridLayoutManager(1, 3, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel14, new GridConstraints(4, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rEndDatePanel.setLayout(new GridLayoutManager(1, 3, new Insets(1, 10, 1, 2), -1, -1));
+        panel14.add(rEndDatePanel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 35), new Dimension(-1, 35), new Dimension(-1, 35), 0, false));
+        endDateLabel = new JLabel();
+        Font endDateLabelFont = this.$$$getFont$$$(null, -1, -1, endDateLabel.getFont());
+        if (endDateLabelFont != null) endDateLabel.setFont(endDateLabelFont);
+        endDateLabel.setText("End Date");
+        rEndDatePanel.add(endDateLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rEndDateContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
+        rEndDatePanel.add(rEndDateContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        endDateContentLabel = new JLabel();
+        endDateContentLabel.setText("sample_text");
+        rEndDateContentPanel.add(endDateContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer10 = new Spacer();
+        rEndDatePanel.add(spacer10, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final Spacer spacer11 = new Spacer();
+        panel14.add(spacer11, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel15 = new JPanel();
+        panel15.setLayout(new GridLayoutManager(1, 3, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel15, new GridConstraints(5, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rDeadlinePanel.setLayout(new GridLayoutManager(1, 3, new Insets(1, 10, 1, 2), -1, -1));
+        panel15.add(rDeadlinePanel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 35), new Dimension(-1, 35), new Dimension(-1, 35), 0, false));
+        deadlineLabel = new JLabel();
+        Font deadlineLabelFont = this.$$$getFont$$$(null, -1, -1, deadlineLabel.getFont());
+        if (deadlineLabelFont != null) deadlineLabel.setFont(deadlineLabelFont);
+        deadlineLabel.setText("Deadline");
+        rDeadlinePanel.add(deadlineLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rDeadlineContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
+        rDeadlinePanel.add(rDeadlineContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        deadlineContentLabel = new JLabel();
+        deadlineContentLabel.setText("sample_text");
+        rDeadlineContentPanel.add(deadlineContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer12 = new Spacer();
+        rDeadlinePanel.add(spacer12, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final Spacer spacer13 = new Spacer();
+        panel15.add(spacer13, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel16 = new JPanel();
+        panel16.setLayout(new GridLayoutManager(1, 3, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel16, new GridConstraints(8, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rOrganizerPanel.setLayout(new GridLayoutManager(1, 3, new Insets(1, 10, 1, 2), -1, -1));
+        panel16.add(rOrganizerPanel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 35), new Dimension(-1, 35), new Dimension(-1, 35), 0, false));
+        organizerLabel = new JLabel();
+        Font organizerLabelFont = this.$$$getFont$$$(null, -1, -1, organizerLabel.getFont());
+        if (organizerLabelFont != null) organizerLabel.setFont(organizerLabelFont);
+        organizerLabel.setText("Organizer");
+        rOrganizerPanel.add(organizerLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rOrganizerContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
+        rOrganizerPanel.add(rOrganizerContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        organizerContentLabel = new JLabel();
+        organizerContentLabel.setText("sample_text");
+        rOrganizerContentPanel.add(organizerContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer14 = new Spacer();
+        rOrganizerPanel.add(spacer14, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final Spacer spacer15 = new Spacer();
+        panel16.add(spacer15, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel17 = new JPanel();
+        panel17.setLayout(new GridLayoutManager(1, 2, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel17, new GridConstraints(9, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JPanel panel18 = new JPanel();
+        panel18.setLayout(new GridLayoutManager(1, 1, new Insets(5, 5, 5, 5), -1, -1));
+        panel17.add(panel18, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        final Spacer spacer16 = new Spacer();
+        panel17.add(spacer16, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel19 = new JPanel();
+        panel19.setLayout(new GridLayoutManager(1, 3, new Insets(10, 0, 10, 0), -1, -1));
+        panel7.add(panel19, new GridConstraints(10, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JPanel panel20 = new JPanel();
+        panel20.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel19.add(panel20, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        problemStatementLabel = new JLabel();
+        Font problemStatementLabelFont = this.$$$getFont$$$(null, -1, 18, problemStatementLabel.getFont());
+        if (problemStatementLabelFont != null) problemStatementLabel.setFont(problemStatementLabelFont);
+        problemStatementLabel.setText("Problem Statement");
+        panel20.add(problemStatementLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer17 = new Spacer();
+        panel19.add(spacer17, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        rEditPanel.setLayout(new GridLayoutManager(1, 1, new Insets(5, 5, 5, 5), -1, -1));
+        rEditPanel.setInheritsPopupMenu(false);
+        panel19.add(rEditPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(100, 30), new Dimension(100, 30), new Dimension(100, 30), 0, false));
+        editLabel = new JLabel();
+        editLabel.setText("Edit");
+        rEditPanel.add(editLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final JPanel panel21 = new JPanel();
+        panel21.setLayout(new GridLayoutManager(1, 2, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel21, new GridConstraints(12, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JPanel panel22 = new JPanel();
+        panel22.setLayout(new GridLayoutManager(1, 1, new Insets(5, 5, 5, 5), -1, -1));
+        panel21.add(panel22, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        final Spacer spacer18 = new Spacer();
+        panel21.add(spacer18, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel23 = new JPanel();
+        panel23.setLayout(new GridLayoutManager(1, 3, new Insets(10, 0, 10, 0), -1, -1));
+        panel7.add(panel23, new GridConstraints(13, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JPanel panel24 = new JPanel();
+        panel24.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel23.add(panel24, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rankingLabel = new JLabel();
+        Font rankingLabelFont = this.$$$getFont$$$(null, -1, 18, rankingLabel.getFont());
+        if (rankingLabelFont != null) rankingLabel.setFont(rankingLabelFont);
+        rankingLabel.setText("Ranking");
+        panel24.add(rankingLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer19 = new Spacer();
+        panel23.add(spacer19, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        rPublishPanel.setLayout(new GridLayoutManager(1, 1, new Insets(5, 5, 5, 5), -1, -1));
+        panel23.add(rPublishPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(100, 30), new Dimension(100, 30), new Dimension(100, 30), 0, false));
+        publishLabel = new JLabel();
+        publishLabel.setText("Publish");
+        rPublishPanel.add(publishLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final JPanel panel25 = new JPanel();
+        panel25.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel25, new GridConstraints(14, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rankingInfoLabel = new JLabel();
+        rankingInfoLabel.setText("The ranking is currently unavailable.");
+        panel25.add(rankingInfoLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rankingListPanel = new JPanel();
+        rankingListPanel.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(rankingListPanel, new GridConstraints(15, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        final JPanel panel26 = new JPanel();
+        panel26.setLayout(new GridLayoutManager(1, 3, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel26, new GridConstraints(6, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rMaxParticipantsPanel.setLayout(new GridLayoutManager(1, 3, new Insets(1, 10, 1, 2), -1, -1));
+        panel26.add(rMaxParticipantsPanel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 35), new Dimension(-1, 35), new Dimension(-1, 35), 0, false));
+        maxParticipantsLabel = new JLabel();
+        Font maxParticipantsLabelFont = this.$$$getFont$$$(null, -1, -1, maxParticipantsLabel.getFont());
+        if (maxParticipantsLabelFont != null) maxParticipantsLabel.setFont(maxParticipantsLabelFont);
+        maxParticipantsLabel.setText("Max Participants");
+        rMaxParticipantsPanel.add(maxParticipantsLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rMaxParticipantsContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
+        rMaxParticipantsPanel.add(rMaxParticipantsContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        maxParticipantsContentLabel = new JLabel();
+        maxParticipantsContentLabel.setText("sample_text");
+        rMaxParticipantsContentPanel.add(maxParticipantsContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer20 = new Spacer();
+        rMaxParticipantsPanel.add(spacer20, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final Spacer spacer21 = new Spacer();
+        panel26.add(spacer21, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel27 = new JPanel();
+        panel27.setLayout(new GridLayoutManager(1, 3, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel27, new GridConstraints(7, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        rMaxTeamSizePanel.setLayout(new GridLayoutManager(1, 3, new Insets(1, 10, 1, 2), -1, -1));
+        panel27.add(rMaxTeamSizePanel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 35), new Dimension(-1, 35), new Dimension(-1, 35), 0, false));
+        maxTeamSizeLabel = new JLabel();
+        Font maxTeamSizeLabelFont = this.$$$getFont$$$(null, -1, -1, maxTeamSizeLabel.getFont());
+        if (maxTeamSizeLabelFont != null) maxTeamSizeLabel.setFont(maxTeamSizeLabelFont);
+        maxTeamSizeLabel.setText("Max Team Size");
+        rMaxTeamSizePanel.add(maxTeamSizeLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        rMaxTeamSizeContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
+        rMaxTeamSizePanel.add(rMaxTeamSizeContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
+        maxTeamSizeContentLabel = new JLabel();
+        maxTeamSizeContentLabel.setText("sample_text");
+        rMaxTeamSizeContentPanel.add(maxTeamSizeContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer22 = new Spacer();
+        rMaxTeamSizePanel.add(spacer22, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final Spacer spacer23 = new Spacer();
+        panel27.add(spacer23, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
+        final JPanel panel28 = new JPanel();
+        panel28.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
+        panel7.add(panel28, new GridConstraints(11, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, null, null, 0, false));
+        problemStatementTextArea = new JTextArea();
+        panel28.add(problemStatementTextArea, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_WANT_GROW, null, new Dimension(150, 50), null, 0, false));
+    }
+
+    /**
+     * @noinspection ALL
+     */
+    private Font $$$getFont$$$(String fontName, int style, int size, Font currentFont) {
+        if (currentFont == null) return null;
+        String resultName;
+        if (fontName == null) {
+            resultName = currentFont.getName();
+        } else {
+            Font testFont = new Font(fontName, Font.PLAIN, 10);
+            if (testFont.canDisplay('a') && testFont.canDisplay('1')) {
+                resultName = fontName;
+            } else {
+                resultName = currentFont.getName();
+            }
+        }
+        Font font = new Font(resultName, style >= 0 ? style : currentFont.getStyle(), size >= 0 ? size : currentFont.getSize());
+        boolean isMac = System.getProperty("os.name", "").toLowerCase(Locale.ENGLISH).startsWith("mac");
+        Font fontWithFallback = isMac ? new Font(font.getFamily(), font.getStyle(), font.getSize()) : new StyleContext().getFont(font.getFamily(), font.getStyle(), font.getSize());
+        return fontWithFallback instanceof FontUIResource ? fontWithFallback : new FontUIResource(fontWithFallback);
+    }
+
+    /**
+     * @noinspection ALL
+     */
+    public JComponent $$$getRootComponent$$$() {
+        return rootPanel;
+    }
 }
