@@ -201,4 +201,24 @@ public class HackathonDAOImpl implements HackathonDAO {
                 .problemDescription(rs.getString("problemDescription"))
                 .build();
     }
+    /**
+     * Verifica se un utente è l'organizzatore di un hackathon.
+     */
+    /**
+     * Verifica se un utente è l'organizzatore di un hackathon.
+     */
+    public int getHackathonIdWhereUserIsOrganizer(int userId) {
+        // Corretto: Interroga la tabella 'organizer' filtrando per 'userId'
+        String query = "SELECT hackathonId FROM organizer WHERE userId = ?";
+        try (java.sql.Connection conn = database.ConnessioneDatabase.getInstance().getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, userId);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("hackathonId");
+            }
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
 }
