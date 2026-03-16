@@ -43,4 +43,5 @@ public interface HackathonDAO {
      * @param description Il testo della nuova traccia/problema.
      */
     public abstract void updateProblemDescription(int hackathonId, String description);
+    public int getHackathonIdWhereUserIsOrganizer(int organizerId);
 }

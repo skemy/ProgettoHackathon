@@ -51,5 +51,12 @@ public interface UserDAO {
 	public abstract boolean isEmailAlreadyRegistered(String email);
 
 	public abstract void promoteToOrganizer(int userId, int hackathonId);
+
 	public int getRegisteredHackathonId(int userId);
+
+	public abstract List<User> getUsersInLimboByHackathon(int hackathonId);
+
+	public abstract boolean promoteToJudge(int userId, int hackathonId);
+
+	public int getHackathonIdWhereUserIsJudge(int userId);
 }

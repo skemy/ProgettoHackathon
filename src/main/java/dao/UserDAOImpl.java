@@ -284,6 +284,7 @@ public class UserDAOImpl implements UserDAO {
             ps.setInt(1, userId);
             ps.setInt(2, hackathonId);
             ps.executeUpdate();
+            System.out.println("✅ Utente registrato correttamente nel database!");
             System.out.println("✅ Utente ID " + userId + " registrato all'Hackathon " + hackathonId + " (In attesa di Team).");
         } catch (SQLException e) {
             e.printStackTrace();
@@ -330,6 +331,97 @@ public class UserDAOImpl implements UserDAO {
             e.printStackTrace();
         }
     }
+    /**
+     * Rimuove un utente specifico dal "Limbo" (tabella registration).
+     * Da chiamare subito dopo averlo inserito in un team.
+     */
+    public void removeFromLimbo(int userId, int hackathonId) {
+        String query = "DELETE FROM registration WHERE userId = ? AND hackathonId = ?";
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, userId);
+            ps.setInt(2, hackathonId);
+            ps.executeUpdate();
+            System.out.println("🚪 Utente " + userId + " rimosso dal Limbo dell'evento " + hackathonId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    /**
+     * Recupera tutti gli utenti iscritti a un determinato hackathon
+     * che sono ancora nella tabella 'registration' (Limbo).
+     */
+    @Override
+    public List<User> getUsersInLimboByHackathon(int hackathonId) {
+        List<User> users = new ArrayList<>();
+        // Query che unisce 'users' e 'registration' per l'evento specifico
+        String query = "SELECT u.* FROM users u " +
+                "JOIN registration r ON u.userId = r.userId " +
+                "WHERE r.hackathonId = ?";
 
+        try (Connection conn = database.ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
 
+            ps.setInt(1, hackathonId);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                users.add(new User(
+                        rs.getInt("userId"),
+                        rs.getString("name"),
+                        rs.getString("email"),
+                        rs.getString("password")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return users;
+    }
+
+    /**
+     * Promuove un utente a Giudice: lo inserisce nella tabella 'jury'
+     * e lo rimuove dalla tabella 'registration' (Limbo).
+     */
+    public boolean promoteToJudge(int userId, int hackathonId) {
+        String query = "INSERT INTO jury (userId, hackathonId) VALUES (?, ?)";
+
+        // Usiamo il try-with-resources: gestisce apertura e chiusura in automatico e senza crash
+        try (java.sql.Connection conn = database.ConnessioneDatabase.getInstance().getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(query)) {
+
+            ps.setInt(1, userId);
+            ps.setInt(2, hackathonId);
+            ps.executeUpdate();
+
+            // Rimuoviamo l'utente dal limbo (usando il tuo metodo già esistente)
+            removeFromLimbo(userId, hackathonId);
+
+            System.out.println("✅ Utente " + userId + " promosso a Giudice con successo!");
+            return true;
+
+        } catch (java.sql.SQLException e) {
+            System.err.println("❌ Errore DB durante la promozione a giudice.");
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Verifica se un utente è registrato come giudice in un hackathon.
+     */
+    public int getHackathonIdWhereUserIsJudge(int userId) {
+        // Corretto: Interroga la tabella 'jury' filtrando per 'userId'
+        String query = "SELECT hackathonId FROM jury WHERE userId = ?";
+        try (java.sql.Connection conn = database.ConnessioneDatabase.getInstance().getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, userId);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("hackathonId");
+            }
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
 }

@@ -2,111 +2,67 @@ package dao;
 
 import database.ConnessioneDatabase;
 import model.Feedback;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Implementazione concreta dell'interfaccia FeedbackDAO per il database PostgreSQL.
- * Questa classe funge da ponte tra l'oggetto Feedback in Java e la tabella 'feedback' su SQL.
- * * Gestisce le operazioni di scrittura, lettura filtrata e validazione dell'integrità
- * per i commenti lasciati dai giudici.
- */
-public class FeedbackDAOImpl implements FeedbackDAO {
+public class FeedbackDAOImpl {
 
     /**
-     * Salva un nuovo feedback nel database.
-     * Mappa l'attributo 'comment' dell'oggetto Java sulla colonna 'text' del database.
-     * L'ID e la data vengono generati automaticamente dal DBMS.
-     * * @param feedback L'oggetto contenente i dati del commento da persistere.
+     * Salva o aggiorna un feedback (Logica di sovrascrittura automatica).
      */
-    @Override
-    public void saveFeedback(Feedback feedback) {
-        // Nota: usiamo i nomi delle colonne definiti nel tuo script SQL (text, judgeId, documentId)
-        String query = "INSERT INTO feedback (text, judgeId, documentId) VALUES (?, ?, ?)";
+    public boolean saveOrUpdateFeedback(int judgeId, int documentId, String text) {
+        // Sintassi PostgreSQL 'ON CONFLICT' per gestire l'update se il record esiste già
+        String query = "INSERT INTO feedback (text, judgeId, documentId) VALUES (?, ?, ?) " +
+                "ON CONFLICT (judgeId, documentId) DO UPDATE SET text = EXCLUDED.text, feedbackDate = CURRENT_TIMESTAMP";
 
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
-
-            ps.setString(1, feedback.getComment()); // Traduzione: da Java (comment) a SQL (text)
-            ps.setInt(2, feedback.getJudgeId());
-            ps.setInt(3, feedback.getDocumentId());
-
-            ps.executeUpdate();
-            System.out.println("✅ Feedback salvato con successo per il Documento ID: " + feedback.getDocumentId());
-
+            ps.setString(1, text);
+            ps.setInt(2, judgeId);
+            ps.setInt(3, documentId);
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            System.err.println("❌ Errore durante il salvataggio del feedback.");
             e.printStackTrace();
+            return false;
         }
     }
 
     /**
-     * Recupera la lista di tutti i feedback associati a un determinato documento.
-     * Effettua la traduzione inversa: estrae dati dalle colonne SQL (text, feedbackDate)
-     * e istanzia oggetti Java di tipo Feedback.
-     * * @param documentId L'ID del documento di cui si vogliono leggere i commenti.
-     * @return Una lista di oggetti Feedback (vuota se non ci sono commenti).
+     * Recupera il feedback specifico di un giudice per un documento (Privacy).
      */
-    @Override
-    public List<Feedback> getFeedbackByDocument(int documentId) {
-        List<Feedback> feedbackList = new ArrayList<>();
-        String query = "SELECT * FROM feedback WHERE documentId = ?";
-
+    public String getFeedbackText(int judgeId, int documentId) {
+        String query = "SELECT text FROM feedback WHERE judgeId = ? AND documentId = ?";
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
-
-            ps.setInt(1, documentId);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    // Creazione dell'oggetto Feedback tramite costruttore completo
-                    Feedback f = new Feedback(
-                            rs.getInt("feedbackId"),
-                            rs.getString("text"), // Nome colonna SQL
-                            rs.getTimestamp("feedbackDate").toLocalDateTime(), // Conversione data
-                            rs.getInt("judgeId"),
-                            rs.getInt("documentId")
-                    );
-                    feedbackList.add(f);
-                }
-            }
-
-        } catch (SQLException e) {
-            System.err.println("❌ Errore durante il recupero dei feedback per il documento " + documentId);
-            e.printStackTrace();
-        }
-
-        return feedbackList;
-    }
-
-    /**
-     * Esegue un controllo di sicurezza preventivo per verificare se un giudice
-     * ha già commentato lo stesso documento, rispettando il vincolo di unicità.
-     * * @param judgeId L'ID del giudice che sta tentando di commentare.
-     * @param documentId L'ID del documento target.
-     * @return true se esiste già un record, false altrimenti.
-     */
-    @Override
-    public boolean hasJudgeAlreadyCommented(int judgeId, int documentId) {
-        String query = "SELECT 1 FROM feedback WHERE judgeId = ? AND documentId = ?";
-
-        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
-             PreparedStatement ps = conn.prepareStatement(query)) {
-
             ps.setInt(1, judgeId);
             ps.setInt(2, documentId);
-
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next(); // Restituisce true se trova una corrispondenza
+                if (rs.next()) return rs.getString("text");
             }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return "";
+    }
 
-        } catch (SQLException e) {
-            System.err.println("❌ Errore durante la verifica della guardia feedback.");
-            e.printStackTrace();
-        }
-
-        return false;
+    /**
+     * Recupera tutti i feedback per un documento con il nome del giudice (Trasparenza Team).
+     */
+    public List<Feedback> getAllFeedbacksForDocument(int documentId) {
+        List<Feedback> list = new ArrayList<>();
+        // Query con JOIN per prendere nome e commento in un colpo solo
+        String query = "SELECT f.text, f.feedbackDate, u.name as judgeName " +
+                "FROM feedback f JOIN users u ON f.judgeId = u.userId " +
+                "WHERE f.documentId = ? ORDER BY f.feedbackDate DESC";
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, documentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    // Usiamo il nuovo costruttore: Commento, NomeGiudice, Data
+                    list.add(new Feedback(rs.getString("text"), rs.getString("judgeName"), rs.getTimestamp("feedbackDate").toLocalDateTime()));
+                }
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
     }
 }

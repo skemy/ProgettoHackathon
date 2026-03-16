@@ -20,19 +20,19 @@ public class DocumentDAOImpl implements DocumentDAO {
      */
     @Override
     public void uploadDocument(Document doc) {
-        String query = "INSERT INTO document (name, documentLink, description, uploadDate, teamId) VALUES (?, ?, ?, ?)";
+        // Usiamo i nomi corretti del DB: documentLink e description
+        String query = "INSERT INTO document (documentLink, description, teamId, uploadDate) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
 
-            ps.setString(1, doc.getName());
-            ps.setString(2, doc.getUrl());
-            ps.setTimestamp(3, Timestamp.valueOf(doc.getUploadDate()));
-
-            ps.setInt(4, doc.getTeamId());
+            ps.setString(1, doc.getUrl());      // documentLink
+            ps.setString(2, doc.getName());     // description
+            ps.setInt(3, doc.getTeamId());
+            ps.setTimestamp(4, Timestamp.valueOf(doc.getUploadDate()));
 
             ps.executeUpdate();
-            System.out.println("✅ Documento caricato per il Team ID: " + doc.getTeamId());
+            System.out.println("✅ Documento salvato per il Team: " + doc.getTeamId());
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -115,15 +115,13 @@ public class DocumentDAOImpl implements DocumentDAO {
      * @throws SQLException In caso di errore nell'estrazione dei dati.
      */
     private Document mapResultSetToDocument(ResultSet rs) throws SQLException {
-        LocalDateTime uploadDate = rs.getTimestamp("uploadDate").toLocalDateTime();
-
         return new Document(
                 rs.getInt("documentId"),
-                rs.getString("name"),
-                rs.getString("url"),
-                uploadDate,
+                rs.getString("description"), // Mappato su 'name' nel model
+                rs.getString("documentLink"), // Mappato su 'url' nel model
+                rs.getTimestamp("uploadDate").toLocalDateTime(),
                 rs.getInt("teamId"),
-                rs.getInt("hackathonId")
+                0 // hackathonId non è presente nella tabella document, usiamo 0
         );
     }
 }

@@ -1,23 +1,12 @@
 package controller;
 
-import dao.HackathonDAO;
-import dao.HackathonDAOImpl;
-import database.ConnessioneDatabase;
+import dao.*;
 import exceptions.BlankFieldException;
 import exceptions.EmailAlreadyTakenException;
 import exceptions.UserNotFoundException;
 import exceptions.UsernameAlreadyTakenException;
 
-import dao.UserDAO;
-import dao.UserDAOImpl;
-import model.Hackathon;
-import model.Organizer;
-import model.Team;
-import model.User;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import model.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,315 +15,235 @@ import java.util.List;
 /**
  * Il "Cervello" dell'applicazione.
  * Riceve gli input dalla GUI (Boundary) e orchestra la logica chiamando i DAO.
+ * (100% privo di query SQL dirette).
  */
 public class Controller {
 
-    // --- SALA MACCHINE (I DAO e la Sessione) ---
     private HackathonDAO hackathonDAO;
     private UserDAO userDAO;
-    private User loggedInUser; // Memoria: ricorda chi è attualmente connesso all'app
+    private User loggedInUser;
 
     public Controller() {
-        // Accendiamo il motore verso PostgreSQL!
         this.userDAO = new UserDAOImpl();
         this.hackathonDAO = new HackathonDAOImpl();
     }
 
-    // Variabile per ricordare se l'utente è stato appena cacciato dal Lazy Check
     private boolean recentlyKicked = false;
-
     public boolean wasRecentlyKicked() { return recentlyKicked; }
     public void resetKickedFlag() { this.recentlyKicked = false; }
 
-    /**
-     * Restituisce l'utente attualmente loggato nel sistema.
-     * @return User l'utente loggato, o null se nessuno ha effettuato l'accesso.
-     */
     public User getCurrentUser() {
         return this.loggedInUser;
     }
 
-    /**
-     * Tenta l'autenticazione dell'utente.
-     * Chiamato dal LoginCardPanel.
-     */
     public void loginUser(String name, String password) throws BlankFieldException, UserNotFoundException {
-
-        // 1. Validazione Input (Il "Cosa")
         if (name == null || name.trim().isEmpty() || password == null || password.trim().isEmpty()) {
             throw new BlankFieldException("Attenzione: Username e Password non possono essere vuoti!");
         }
 
-        System.out.println("🔄 Controller sta interrogando il Database per le credenziali di: " + name);
-
-        // --- LOGICA REALE VERSO IL DB ---
-        // CORREZIONE 1: Usiamo checkLogin al posto di authenticateUser
-        User user = userDAO.checkLogin(name, password);
-
-        if (user == null) {
+        User baseUser = userDAO.checkLogin(name, password);
+        if (baseUser == null) {
             throw new UserNotFoundException("Utente non trovato o password errata.");
         }
 
-        // 2. Salviamo la "Sessione" dell'utente!
-        this.loggedInUser = user;
-
-        // CORREZIONE 2: Usiamo getName() al posto di getUsername()
-        System.out.println("✅ Login confermato dal Database! Benvenuto a bordo, " + user.getName());
-        // 2. Salviamo la "Sessione" dell'utente!
-        this.loggedInUser = user;
-
-        // AGGIUNGI QUESTA RIGA:
-        System.out.println("🚨 DEBUG LOGIN: La classe dell'utente in memoria è: " + this.loggedInUser.getClass().getSimpleName());
+        this.loggedInUser = resolveActualUserRole(baseUser);
+        System.out.println("✅ Login confermato! Ruolo reale caricato: " + this.loggedInUser.getClass().getSimpleName());
     }
 
+    private User resolveActualUserRole(User u) {
+        int uid = u.getUserId();
 
-    /**
-     * Tenta la registrazione di un nuovo utente.
-     * Chiamato dal RegistrationCardPanel.
-     */
+        int teamId = new TeamDAOImpl().getTeamIdByUserId(uid);
+        if (teamId > 0) return new Participant(uid, u.getName(), u.getEmail(), u.getPassword(), teamId);
+
+        int judgeHid = ((UserDAOImpl) userDAO).getHackathonIdWhereUserIsJudge(uid);
+        if (judgeHid > 0) return new Judge(uid, u.getName(), u.getEmail(), u.getPassword(), judgeHid);
+
+        int orgHid = ((HackathonDAOImpl) hackathonDAO).getHackathonIdWhereUserIsOrganizer(uid);
+        if (orgHid > 0) return new Organizer(uid, u.getName(), u.getEmail(), u.getPassword(), orgHid);
+
+        return u;
+    }
+
     public void registerUser(String username, String email, String password)
             throws BlankFieldException, UsernameAlreadyTakenException, EmailAlreadyTakenException {
 
-        // 1. Validazione Input (Il "Cosa")
         if (username == null || username.trim().isEmpty() ||
                 email == null || email.trim().isEmpty() ||
                 password == null || password.trim().isEmpty()) {
             throw new BlankFieldException("Attenzione: Tutti i campi sono obbligatori!");
         }
 
-        System.out.println("🔄 Controller sta verificando le collisioni nel Database...");
-
-        // --- LOGICA REALE VERSO IL DB ---
-        // 2. Controllo Esistenza (Le tue "Guardie")
         if (userDAO.isUsernameAlreadyRegistered(username)) {
-            throw new UsernameAlreadyTakenException("Questo Username è già stato scelto da un altro utente.");
+            throw new UsernameAlreadyTakenException("Questo Username è già stato scelto.");
         }
 
         if (userDAO.isEmailAlreadyRegistered(email)) {
             throw new EmailAlreadyTakenException("Esiste già un account con questa Email.");
         }
 
-        // 3. Salvataggio definitivo
         userDAO.registerUser(new User(username, email, password));
-
-        System.out.println("✅ Utente salvato permanentemente nel Database PostgreSQL!");
     }
 
-    // =========================================================================
-    // --- METODI PER LA GESTIONE HACKATHON ---
-    // =========================================================================
-
-    /**
-     * Recupera la lista di tutti gli hackathon dal database.
-     */
     public List<Hackathon> getAllHackathons() {
-        System.out.println("🔄 Controller: Recupero lista eventi dal database...");
-        // Chiamata al metodo che hai già scritto nel DAO
         return hackathonDAO.getAllHackathons();
     }
 
-    /**
-     * Crea un nuovo Hackathon e promuove l'utente attuale a Organizer.
-     */
+    public String createTeamAction(String teamName) throws Exception {
+        if (!loggedInUser.getClass().equals(User.class)) {
+            throw new Exception("Devi essere nel Limbo per creare un team.");
+        }
+
+        int hId = ((UserDAOImpl) userDAO).getRegisteredHackathonId(loggedInUser.getUserId());
+        if (hId <= 0) throw new Exception("Non sei iscritto a nessun evento.");
+
+        TeamDAOImpl teamDAO = new TeamDAOImpl();
+        Team newTeam = new Team(0, teamName, "", null, hId);
+        int teamId = teamDAO.createTeamAndReturnId(newTeam);
+
+        if (teamId <= 0) throw new Exception("Errore: Nome del team già in uso o database non raggiungibile.");
+
+        teamDAO.linkUserToTeam(loggedInUser.getUserId(), teamId);
+        ((UserDAOImpl) userDAO).removeFromLimbo(loggedInUser.getUserId(), hId);
+
+        this.loggedInUser = new Participant(
+                loggedInUser.getUserId(), loggedInUser.getName(),
+                loggedInUser.getEmail(), loggedInUser.getPassword(), teamId
+        );
+
+        return newTeam.getAccessCode();
+    }
+
+    public void joinTeamAction(String accessCode) throws Exception {
+        if (!loggedInUser.getClass().equals(User.class)) {
+            throw new Exception("Devi essere nel Limbo per unirti a un team.");
+        }
+
+        int hId = ((UserDAOImpl) userDAO).getRegisteredHackathonId(loggedInUser.getUserId());
+        if (hId <= 0) throw new Exception("Non sei iscritto a nessun evento.");
+
+        TeamDAOImpl teamDAO = new TeamDAOImpl();
+        int teamId = teamDAO.getTeamIdByCode(accessCode);
+        if (teamId <= 0) throw new Exception("Codice di accesso non valido o team inesistente.");
+
+        boolean joined = teamDAO.linkUserToTeam(loggedInUser.getUserId(), teamId);
+        if (!joined) throw new Exception("Errore durante l'adesione al team.");
+
+        ((UserDAOImpl) userDAO).removeFromLimbo(loggedInUser.getUserId(), hId);
+
+        this.loggedInUser = new Participant(
+                loggedInUser.getUserId(), loggedInUser.getName(),
+                loggedInUser.getEmail(), loggedInUser.getPassword(), teamId
+        );
+    }
+
+    public boolean canUserCreateHackathon() {
+        if (loggedInUser.getClass().equals(User.class)) {
+            int existingRegistration = ((dao.UserDAOImpl) userDAO).getRegisteredHackathonId(loggedInUser.getUserId());
+            return existingRegistration <= 0;
+        }
+
+        Hackathon current = getCurrentHackathon();
+        if (current == null) return true;
+
+        return LocalDateTime.now().isAfter(current.getEndDate());
+    }
 
     public void createHackathon(String title, String location, LocalDate startDate, LocalDate endDate, int maxParticipants, int maxTeamSize) throws Exception {
-
-        // 1. Validazione Input di base
         if (title == null || title.trim().isEmpty() || location == null || location.trim().isEmpty()) {
             throw new BlankFieldException("Titolo e Location sono obbligatori.");
         }
 
-        // 2. Controllo Ruolo: Solo gli utenti "base" possono creare un nuovo Hackathon.
-        // Se sei già Organizer, Judge o Participant, la classe non sarà esattamente "User.class".
         if (!loggedInUser.getClass().equals(User.class)) {
-            throw new Exception("Non puoi creare un nuovo evento: fai già parte di un Hackathon attivo.");
+            throw new Exception("Fai già parte di un Hackathon attivo con un ruolo specifico.");
         }
 
-        System.out.println("🔄 Creazione dell'evento nel Database...");
+        int existingRegistration = ((UserDAOImpl) userDAO).getRegisteredHackathonId(loggedInUser.getUserId());
+        if (existingRegistration > 0) {
+            throw new Exception("Sei già iscritto a un evento! Non puoi crearne uno nuovo finché sei registrato a quello attuale.");
+        }
 
-        // Conversione date (da LocalDate della GUI a LocalDateTime del DB)
         LocalDateTime start = startDate.atStartOfDay();
         LocalDateTime end = endDate.atTime(23, 59);
-
-        // Date di registrazione (per ora le impostiamo in automatico, es. da 30gg prima a 1gg prima)
         LocalDateTime regStart = start.minusDays(30);
         LocalDateTime regEnd = start.minusDays(1);
 
-        // 3. Creiamo l'Entity con ID 0 (fittizio)
         Hackathon newEvent = new Hackathon(0, title, location, start, end, regStart, regEnd, maxParticipants, maxTeamSize, null);
-
-        // 4. Deleghiamo al DAO. Il DAO salva e INIETTA il vero ID dentro "newEvent"
         hackathonDAO.createHackathon(newEvent);
 
-        // 5. Ora newEvent ha l'ID reale!
-        int realHackathonId = newEvent.getHackathonId();
-
-        if (realHackathonId > 0) {
-            // Promuoviamo l'utente nella tabella "organizer" del Database
-            // (Assicurati di aver aggiunto questo metodo in UserDAOImpl come discusso prima)
-            if (userDAO instanceof UserDAOImpl) {
-                ((UserDAOImpl) userDAO).promoteToOrganizer(loggedInUser.getUserId(), realHackathonId);
-            }
-
-            // Aggiorniamo la Sessione in memoria per sbloccare i permessi GUI
-            this.loggedInUser = new Organizer(
-                    loggedInUser.getUserId(),
-                    loggedInUser.getName(),
-                    loggedInUser.getEmail(),
-                    loggedInUser.getPassword(),
-                    realHackathonId
-            );
-
-            System.out.println("🎉 Evento creato con successo! Ora sei l'Organizzatore dell'evento ID " + realHackathonId);
+        int realId = newEvent.getHackathonId();
+        if (realId > 0) {
+            ((UserDAOImpl) userDAO).promoteToOrganizer(loggedInUser.getUserId(), realId);
+            this.loggedInUser = new Organizer(loggedInUser.getUserId(), loggedInUser.getName(), loggedInUser.getEmail(), loggedInUser.getPassword(), realId);
         } else {
-            throw new Exception("Errore critico durante la generazione dell'ID dell'evento.");
+            throw new Exception("Errore durante la generazione dell'evento.");
         }
     }
 
-
-    /**
-     * Promuove un utente base a Organizzatore collegandolo a un Hackathon.
-     */
-    public void promoteToOrganizer(int userId, int hackathonId) {
-        String query = "INSERT INTO organizer (userId, hackathonId) VALUES (?, ?)";
-        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
-             PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setInt(1, userId);
-            ps.setInt(2, hackathonId);
-            ps.executeUpdate();
-            System.out.println("✅ Utente promosso a Organizer nel DB.");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    /**
-     * Iscrive l'utente all'evento (lo mette in registration).
-     * Non cambia la sua classe Java, rimane un User normale finché non crea/entra in un Team!
-     */
     public void joinHackathon(int hackathonId) throws Exception {
         if (!loggedInUser.getClass().equals(User.class)) {
-            throw new Exception("Azione bloccata: Fai già parte di un Hackathon attivo (Organizer, Judge o Participant).");
+            throw new Exception("Fai già parte di un Hackathon attivo.");
         }
 
-        // 1. Controllo: L'utente è già nel limbo per qualche evento?
         int existingRegistration = ((UserDAOImpl) userDAO).getRegisteredHackathonId(loggedInUser.getUserId());
         if (existingRegistration > 0) {
-            throw new Exception("Sei già registrato a un evento! Vai nella sezione 'Team' per creare o unirti a una squadra.");
+            throw new Exception("Sei già registrato a un evento!");
         }
 
-        System.out.println("🔄 L'utente è libero. Procedo con la registrazione (Limbo) all'Hackathon ID: " + hackathonId);
-
-        // 2. Salvataggio nel database
         ((UserDAOImpl) userDAO).registerUserToHackathon(loggedInUser.getUserId(), hackathonId);
-
-        System.out.println("✅ Registrazione completata: L'utente è ora in attesa di formare un team.");
     }
 
-    /**
-     * Recupera l'Hackathon in base al ruolo dell'utente attuale.
-     */
     public Hackathon getCurrentHackathon() {
         if (loggedInUser == null) return null;
 
-        System.out.println("-------------------------------------------------");
-        System.out.println("🕵️ INDAGINE HACKATHON PER: " + loggedInUser.getName() + " (Classe: " + loggedInUser.getClass().getSimpleName() + ")");
-
         int hId = -1;
-
         if (loggedInUser instanceof Organizer) {
             hId = ((Organizer) loggedInUser).getHackathonId();
-        } else if (loggedInUser instanceof model.Judge) {
-            hId = ((model.Judge) loggedInUser).getHackathonId();
-        } else if (loggedInUser instanceof model.Participant) {
-            int teamId = ((model.Participant) loggedInUser).getTeamId();
-            hId = getHackathonIdFromTeam(teamId);
+        } else if (loggedInUser instanceof Judge) {
+            hId = ((Judge) loggedInUser).getHackathonId();
+        } else if (loggedInUser instanceof Participant) {
+            hId = new TeamDAOImpl().getHackathonIdByTeam(((Participant) loggedInUser).getTeamId());
         } else {
-            // NOVITÀ: È un User base. Vediamo se è nella tabella registration!
-            if (userDAO instanceof UserDAOImpl) {
-                hId = ((UserDAOImpl) userDAO).getRegisteredHackathonId(loggedInUser.getUserId());
-                if (hId > 0) {
-                    System.out.println("🔎 Ruolo: User Registrato (Senza Team). Hackathon ID: " + hId);
-                } else {
-                    System.out.println("🚫 Ruolo: Semplice User. Nessun hackathon associato.");
-                    return null;
-                }
-            }
+            hId = ((UserDAOImpl) userDAO).getRegisteredHackathonId(loggedInUser.getUserId());
         }
 
         if (hId <= 0) return null;
-        // 3. Estrazione dal DB con trappola per errori e LAZY CHECK
+
         try {
             Hackathon h = hackathonDAO.getHackathonById(hId);
-
             if (h != null) {
-                // ==========================================
-                // ⏰ LAZY CHECK: L'evento è iniziato?
-                // ==========================================
                 if (LocalDateTime.now().isAfter(h.getStartDate()) || LocalDateTime.now().isEqual(h.getStartDate())) {
-
-                    if (userDAO instanceof UserDAOImpl) {
-                        // 1. Puliamo il DB da tutti i "ritardatari" senza team
-                        ((UserDAOImpl) userDAO).cleanupLimboRegistrations(hId);
-
-                        // 2. Se l'utente attualmente loggato era uno di questi "ritardatari" (un semplice User),
-                        // è appena stato cancellato dal DB! Dobbiamo bloccargli la vista.
-                        if (loggedInUser.getClass().equals(User.class)) {
-                            System.out.println("⏰ TEMPO SCADUTO: L'utente non aveva un team allo scoccare della Start Date. Estromesso.");
-                            this.recentlyKicked = true;
-                            return null; // La GUI lo tratterà come se non fosse iscritto a nulla
-                        }
+                    ((UserDAOImpl) userDAO).cleanupLimboRegistrations(hId);
+                    if (loggedInUser.getClass().equals(User.class)) {
+                        this.recentlyKicked = true;
+                        return null;
                     }
                 }
-
-                System.out.println("✅ SUCCESSO: Hackathon trovato! Titolo: " + h.getTitle());
             }
-
-            System.out.println("-------------------------------------------------");
             return h;
-
         } catch (Exception e) {
-            System.out.println("🔥 ECCEZIONE ESPLOSIVA durante l'estrazione dal DB:");
             e.printStackTrace();
             return null;
         }
     }
 
-    /**
-     * Helper temporaneo: trova l'hackathonId a cui appartiene un Team.
-     */
-    private int getHackathonIdFromTeam(int teamId) {
-        String query = "SELECT hackathonId FROM team WHERE teamId = ?";
-        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
-             PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setInt(1, teamId);
-            try (java.sql.ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("hackathonId");
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return -1;
-    }
-
-    /**
-     * Verifica se l'utente attualmente loggato ha il ruolo di Giudice.
-     */
-    public boolean isCurrentUserJudge() {
-        return loggedInUser instanceof model.Judge;
-    }
-
-    /**
-     * Recupera il nome dell'organizzatore partendo dall'ID dell'hackathon.
-     */
     public String getOrganizerNameForHackathon(int hackathonId) {
         if (hackathonDAO instanceof HackathonDAOImpl) {
             return ((HackathonDAOImpl) hackathonDAO).getOrganizerUsernameByHackathonId(hackathonId);
         }
         return "Unknown";
+    }
+
+    public List<Participant> getMyTeamMembers() {
+        if (loggedInUser instanceof Participant) {
+            int teamId = ((Participant) loggedInUser).getTeamId();
+            return new TeamDAOImpl().getTeamMembers(teamId);
+        }
+        return new ArrayList<>();
+    }
+
+    public boolean isCurrentUserJudge() {
+        return loggedInUser instanceof model.Judge;
     }
 
     public boolean updateHackathonProblem(String newDescription) {
@@ -346,9 +255,155 @@ public class Controller {
         return false;
     }
 
-    public List<Team> getRankedTeams() {
+    // --- LOGICA PUBBLICAZIONE CLASSIFICA (LEADERBOARD) ---
+    public List<String> getLeaderboardRanking() throws Exception {
+        Hackathon current = getCurrentHackathon();
+        if (current == null) {
+            throw new Exception("No active hackathon found.");
+        }
+
+        VoteDAOImpl voteDAO = new VoteDAOImpl();
+
+        // Verifica imposta dalla Traccia: La piattaforma pubblica SE tutti i voti sono acquisiti
+        if (!voteDAO.areAllVotesCast(current.getHackathonId())) {
+            throw new Exception("Results pending. The platform is waiting for all judges to evaluate all teams.");
+        }
+
+        // Se tutti hanno votato, restituisce la classifica formattata
+        return voteDAO.getLeaderboard(current.getHackathonId());
+    }
+
+    public void addDocumentAction(String name, String url) throws Exception {
+        if (!(loggedInUser instanceof Participant)) {
+            throw new Exception("Solo i membri ufficiali del team possono caricare documenti.");
+        }
+
+        if (name.isBlank() || url.isBlank()) {
+            throw new Exception("Nome e URL sono obbligatori.");
+        }
+
+        int teamId = ((Participant) loggedInUser).getTeamId();
+        Document newDoc = new Document(0, name, url, LocalDateTime.now(), teamId, 0);
+
+        new DocumentDAOImpl().uploadDocument(newDoc);
+    }
+
+    public List<Document> getMyTeamDocuments() {
+        if (loggedInUser instanceof Participant) {
+            return new DocumentDAOImpl().getDocumentsByTeam(((Participant) loggedInUser).getTeamId());
+        }
         return new ArrayList<>();
     }
 
+    public Team getMyTeam() {
+        if (loggedInUser instanceof Participant) {
+            int teamId = ((Participant) loggedInUser).getTeamId();
+            return new TeamDAOImpl().getTeamById(teamId);
+        }
+        return null;
+    }
 
+    public List<User> getUsersInLimbo() {
+        Hackathon current = getCurrentHackathon();
+        if (current == null) return new ArrayList<>();
+
+        List<User> rawList = ((UserDAOImpl) userDAO).getUsersInLimboByHackathon(current.getHackathonId());
+        List<User> trueLimbo = new ArrayList<>();
+
+        for (User u : rawList) {
+            User resolved = resolveActualUserRole(u);
+            if (resolved.getClass().equals(User.class)) {
+                trueLimbo.add(u);
+            }
+        }
+        return trueLimbo;
+    }
+
+    public void promoteToJudgeAction(int userId) throws Exception {
+        Hackathon current = getCurrentHackathon();
+        if (current == null) throw new Exception("No active hackathons.");
+
+        int judgeHid = ((UserDAOImpl) userDAO).getHackathonIdWhereUserIsJudge(userId);
+        if (judgeHid == current.getHackathonId()) {
+            throw new Exception("The user is already a judge");
+        }
+
+        boolean success = ((UserDAOImpl) userDAO).promoteToJudge(userId, current.getHackathonId());
+        if (!success) {
+            throw new Exception("Errore interno del database durante la promozione.");
+        }
+    }
+
+    public List<Team> getTeamsByHackathon() {
+        Hackathon current = getCurrentHackathon();
+        if (current == null) return new ArrayList<>();
+        return new TeamDAOImpl().getTeamsByHackathon(current.getHackathonId());
+    }
+
+    public boolean hasJudgeAlreadyVoted(int teamId) {
+        if (loggedInUser instanceof Judge) {
+            return new VoteDAOImpl().checkIfAlreadyVoted(loggedInUser.getUserId(), teamId);
+        }
+        return true;
+    }
+
+    public boolean voteTeamAction(int teamId, int score) {
+        if (loggedInUser instanceof Judge) {
+            return new VoteDAOImpl().insertVote(loggedInUser.getUserId(), teamId, score);
+        }
+        return false;
+    }
+
+    public List<Participant> getTeamMembers(int teamId) {
+        return new dao.TeamDAOImpl().getTeamMembers(teamId);
+    }
+
+    public List<Document> getTeamDocuments(int teamId) {
+        return new dao.DocumentDAOImpl().getDocumentsByTeam(teamId);
+    }
+
+    public boolean isCurrentUserOrganizer() {
+        return loggedInUser instanceof model.Organizer;
+    }
+
+    public String getMyFeedbackForDocument(int documentId) {
+        return new FeedbackDAOImpl().getFeedbackText(loggedInUser.getUserId(), documentId);
+    }
+
+    public void saveFeedbackAction(int documentId, String text) throws Exception {
+        if (!(loggedInUser instanceof Judge)) throw new Exception("Solo i giudici possono commentare.");
+        boolean success = new FeedbackDAOImpl().saveOrUpdateFeedback(loggedInUser.getUserId(), documentId, text);
+        if (!success) throw new Exception("Errore durante il salvataggio del commento.");
+    }
+
+    public List<Feedback> getDocumentFeedbacks(int documentId) {
+        return new FeedbackDAOImpl().getAllFeedbacksForDocument(documentId);
+    }
+
+    // --- LOGICA PUBBLICAZIONE CLASSIFICA (LEADERBOARD) ---
+
+    /**
+     * Usato dall'Organizzatore. Mostra la classifica in tempo reale.
+     */
+    public List<String> getLiveRankingForOrganizer() throws Exception {
+        Hackathon current = getCurrentHackathon();
+        if (current == null) throw new Exception("No active hackathon found.");
+        return new VoteDAOImpl().getLeaderboard(current.getHackathonId());
+    }
+
+    /**
+     * Usato da Partecipanti/Giudici. Mostra la classifica SOLO se l'evento è finito.
+     */
+    public List<String> getFinalRanking() throws Exception {
+        Hackathon current = getCurrentHackathon();
+        if (current == null) throw new Exception("No active hackathon found.");
+
+        // Se l'evento non è ancora finito, blocca la visualizzazione.
+        if (LocalDateTime.now().isBefore(current.getEndDate())) {
+            throw new Exception("The event is still ongoing. The final ranking will be published automatically when the event ends.");
+        }
+
+        // Se l'evento è finito, mostra la classifica (anche se i giudici hanno dimenticato di votare)
+        return new VoteDAOImpl().getLeaderboard(current.getHackathonId());
+    }
 }

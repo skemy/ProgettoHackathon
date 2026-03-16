@@ -12,11 +12,11 @@ import java.util.UUID;
 public class TeamDAOImpl implements TeamDAO {
 
     @Override
-    public boolean createTeam(Team team) {
+    public int createTeamAndReturnId(Team team) {
+        // Generazione automatica dell'access code (8 caratteri alfanumerici)
         String generatedCode = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         team.setAccessCode(generatedCode);
 
-        // Niente ruolo qui, e creationDate si compila da solo nel DB
         String query = "INSERT INTO team (teamName, accessCode, hackathonId) VALUES (?, ?, ?)";
 
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
@@ -26,38 +26,31 @@ public class TeamDAOImpl implements TeamDAO {
             ps.setString(2, team.getAccessCode());
             ps.setInt(3, team.getHackathonId());
 
-            int rows = ps.executeUpdate();
+            ps.executeUpdate();
 
-            if (rows > 0) {
-                try (ResultSet rs = ps.getGeneratedKeys()) {
-                    if (rs.next()) {
-                        team.setTeamId(rs.getInt(1));
-                    }
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    int id = rs.getInt(1);
+                    team.setTeamId(id);
+                    System.out.println("✅ Team creato nel DB con ID: " + id + " e codice: " + generatedCode);
+                    return id;
                 }
-                System.out.println("✅ Team creato con codice: " + generatedCode);
-                return true;
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return -1;
     }
 
     @Override
-    public boolean joinTeam(Participant participant, String accessCode) {
-        int teamId = getTeamIdByCode(accessCode);
-        if (teamId == -1) {
-            System.out.println("❌ Codice team non valido.");
-            return false;
-        }
-
-        // Il Database imposterà "role" a 'MEMBER' in automatico!
+    public boolean linkUserToTeam(int userId, int teamId) {
+        // Il DB gestisce il ruolo 'MEMBER' di default nella tabella participation
         String query = "INSERT INTO participation (userId, teamId) VALUES (?, ?)";
 
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
 
-            ps.setInt(1, participant.getUserId());
+            ps.setInt(1, userId);
             ps.setInt(2, teamId);
 
             return ps.executeUpdate() > 0;
@@ -66,6 +59,22 @@ public class TeamDAOImpl implements TeamDAO {
             e.printStackTrace();
         }
         return false;
+    }
+
+    @Override
+    public int getTeamIdByCode(String code) {
+        String query = "SELECT teamId FROM team WHERE accessCode = ?";
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, code);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("teamId");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return -1;
     }
 
     @Override
@@ -121,8 +130,6 @@ public class TeamDAOImpl implements TeamDAO {
     @Override
     public List<Participant> getTeamMembers(int teamId) {
         List<Participant> members = new ArrayList<>();
-
-        // Niente più estrazione del 'role'
         String query = "SELECT u.* FROM users u " +
                 "JOIN participation p ON u.userId = p.userId " +
                 "WHERE p.teamId = ?";
@@ -134,7 +141,7 @@ public class TeamDAOImpl implements TeamDAO {
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
-                // QUI C'ERA L'ERRORE: Ora passiamo ESATTAMENTE i 5 parametri richiesti!
+                // Mappatura polimorfica: passiamo (id, name, email, password, teamId)
                 members.add(new Participant(
                         rs.getInt("userId"),
                         rs.getString("name"),
@@ -149,13 +156,32 @@ public class TeamDAOImpl implements TeamDAO {
         return members;
     }
 
-    private int getTeamIdByCode(String code) {
-        String query = "SELECT teamId FROM team WHERE accessCode = ?";
+    @Override
+    public int getTeamIdByUserId(int userId) {
+        String query = "SELECT teamId FROM participation WHERE userId = ?";
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setString(1, code);
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) return rs.getInt("teamId");
+
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("teamId");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
+
+    @Override
+    public int getHackathonIdByTeam(int teamId) {
+        String query = "SELECT hackathonId FROM team WHERE teamId = ?";
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+
+            ps.setInt(1, teamId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("hackathonId");
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
