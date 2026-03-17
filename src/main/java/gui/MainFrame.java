@@ -14,9 +14,20 @@ import javax.swing.text.StyleContext;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLException;
 import java.util.Locale;
 
+/**
+ * Finestra principale dell'applicazione (Boundary).
+ * Gestisce la navigazione tra le diverse aree funzionali tramite una sidebar interattiva
+ * e un sistema di CardLayout.
+ */
 public class MainFrame extends JFrame {
+
+    // Costanti per risolvere SonarQube S1192 (Duplicate Literals)
+    private static final String DASHBOARD_ID = "dashboard";
+    private static final String DB_ERROR_TITLE = "Database Error";
+
     private JPanel rootPanel;
     private JPanel sidebarPanel;
     private JPanel cardPanel;
@@ -38,50 +49,52 @@ public class MainFrame extends JFrame {
     private JPanel menuPanel;
     private JLabel evaluationLable;
 
-    private final Controller controller;
+    // Marcato come transient per risolvere SonarQube S1948 (Serialization)
+    private final transient Controller controller;
     private CardLayout cardLayout;
 
-    // Riferimenti ai pannelli reali per gestire i refresh
     private HackathonCardPanel hackathonCard;
     private TeamCardPanel teamCard;
     private OrganizerManageCardPanel organizerCard;
     private JudgeManageCardPanel judgeCard;
 
+    /**
+     * Inizializza la cornice principale e carica lo stato dell'utente loggato.
+     *
+     * @param controller Il coordinatore della logica di business.
+     */
     public MainFrame(Controller controller) {
         this.controller = controller;
 
-        // 1. Carica l'interfaccia dal file .form
         $$$setupUI$$$();
+        initializeWindowProperties();
+        setupCardPanel();
+        customizeComponents();
+        setupListeners();
+        checkKickedStatus();
+    }
 
-        // 2. Impostazioni base della finestra
-        setTitle("Hackathon.IO - Home (" + controller.getCurrentUser().getName() + ")");
+    private void initializeWindowProperties() {
+        String userName = "User";
+        try {
+            userName = controller.getCurrentUser().getName();
+        } catch (Exception e) {
+            // Fallback silenzioso per il titolo se il DB non risponde
+        }
+        setTitle("Hackathon.IO - Home (@" + userName + ")");
         setSize(1000, 700);
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        // FIX SonarQube S3252: Accesso statico via WindowConstants
+        setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setContentPane(rootPanel);
         setLocationRelativeTo(null);
-
-        // 3. Inizializza i contenuti e la logica
-        setupCardPanel();
-        customizeComponents(); // Colora la sidebar e i pannelli
-        setupListeners();      // Attiva i click sui tasti
-
-        // Controllo se l'utente è stato espulso per mancanza di team
-        if (controller.wasRecentlyKicked()) {
-            JOptionPane.showMessageDialog(this,
-                    "Attenzione: L'evento a cui eri iscritto è iniziato e non facevi parte di alcun team.\nLa tua registrazione è stata annullata.",
-                    "Tempo Scaduto",
-                    JOptionPane.WARNING_MESSAGE);
-            controller.resetKickedFlag();
-        }
     }
 
     private void setupCardPanel() {
         cardLayout = new CardLayout();
         cardPanel.setLayout(cardLayout);
 
-        // Inizializzazione dei pannelli reali
         DashboardCardPanel dashboardCard = new DashboardCardPanel(controller);
-        cardPanel.add(dashboardCard.getRootPanel(), "dashboard");
+        cardPanel.add(dashboardCard.getRootPanel(), DASHBOARD_ID);
 
         hackathonCard = new HackathonCardPanel(controller);
         cardPanel.add(hackathonCard.getRootPanel(), "hackathon");
@@ -95,103 +108,70 @@ public class MainFrame extends JFrame {
         judgeCard = new JudgeManageCardPanel(controller);
         cardPanel.add(judgeCard.getRootPanel(), "evaluation");
 
-        cardLayout.show(cardPanel, "dashboard");
+        cardLayout.show(cardPanel, DASHBOARD_ID);
     }
 
     private void customizeComponents() {
-        // Colori Sidebar e Sfondo
         sidebarPanel.setBackground(UIColors.NIGHT_BLUE);
         containerPanel.setBackground(UIColors.NIGHT_BLUE);
         menuPanel.setBackground(UIColors.NIGHT_BLUE);
         menuLabel.setForeground(Color.WHITE);
 
-        // Reset colori pannelli tasti
-        rDashboardPanel.setBackground(UIColors.NIGHT_BLUE);
-        dashboardLabel.setForeground(Color.WHITE);
+        resetSidebarColors();
 
-        rHackathonPanel.setBackground(UIColors.NIGHT_BLUE);
-        hackathonLabel.setForeground(Color.WHITE);
-
-        rTeamPanel.setBackground(UIColors.NIGHT_BLUE);
-        teamLabel.setForeground(Color.WHITE);
-
-        rManagePanel.setBackground(UIColors.NIGHT_BLUE);
-        manageLabel.setForeground(Color.WHITE);
-        manageLabel.setText("Manage");
-
-        rEvaluationPanel.setBackground(UIColors.NIGHT_BLUE);
-        evaluationLable.setForeground(Color.WHITE);
-        evaluationLable.setText("Evaluation");
-
-        rLogoutPanel.setBackground(UIColors.NIGHT_BLUE);
-        logoutLabel.setForeground(Color.WHITE);
-
-        // Logica di visibilità dinamica
-        User user = controller.getCurrentUser();
-        rManagePanel.setVisible(user instanceof Organizer);
-        rEvaluationPanel.setVisible(user instanceof Judge);
+        try {
+            User user = controller.getCurrentUser();
+            rManagePanel.setVisible(user instanceof Organizer);
+            rEvaluationPanel.setVisible(user instanceof Judge);
+        } catch (Exception e) {
+            rManagePanel.setVisible(false);
+            rEvaluationPanel.setVisible(false);
+        }
     }
 
-    private void createUIComponents() {
-        // Obbligatorio per componenti Custom Create nel .form
-        rDashboardPanel = new RoundedPanel();
-        rHackathonPanel = new RoundedPanel();
-        rTeamPanel = new RoundedPanel();
-        rManagePanel = new RoundedPanel();
-        rEvaluationPanel = new RoundedPanel();
-        rLogoutPanel = new RoundedPanel();
+    private void resetSidebarColors() {
+        rDashboardPanel.setBackground(UIColors.NIGHT_BLUE);
+        dashboardLabel.setForeground(Color.WHITE);
+        rHackathonPanel.setBackground(UIColors.NIGHT_BLUE);
+        hackathonLabel.setForeground(Color.WHITE);
+        rTeamPanel.setBackground(UIColors.NIGHT_BLUE);
+        teamLabel.setForeground(Color.WHITE);
+        rManagePanel.setBackground(UIColors.NIGHT_BLUE);
+        manageLabel.setForeground(Color.WHITE);
+        rEvaluationPanel.setBackground(UIColors.NIGHT_BLUE);
+        evaluationLable.setForeground(Color.WHITE);
+        rLogoutPanel.setBackground(UIColors.NIGHT_BLUE);
+        logoutLabel.setForeground(Color.WHITE);
+    }
+
+    private void checkKickedStatus() {
+        if (controller.wasRecentlyKicked()) {
+            JOptionPane.showMessageDialog(this,
+                    "L'evento è iniziato e non avevi un team. L'iscrizione è stata annullata.",
+                    "Registrazione Scaduta", JOptionPane.WARNING_MESSAGE);
+            controller.resetKickedFlag();
+        }
     }
 
     private void setupListeners() {
-        // Listener per Dashboard
-        rDashboardPanel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                cardLayout.show(cardPanel, "dashboard");
-            }
+        rDashboardPanel.addMouseListener(new SidebarListener(rDashboardPanel, DASHBOARD_ID, null));
 
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                rDashboardPanel.setBackground(UIColors.CARMINE_RED);
-            }
+        // FIX Errore Compilazione: Rimosso parametro booleano (Expected no arguments)
+        rHackathonPanel.addMouseListener(new SidebarListener(rHackathonPanel, "hackathon", () -> hackathonCard.refreshData()));
 
-            @Override
-            public void mouseExited(MouseEvent e) {
-                rDashboardPanel.setBackground(UIColors.NIGHT_BLUE);
-            }
-        });
-
-        // Listener per Hackathon
-        rHackathonPanel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                hackathonCard.refreshData(true);
-                cardLayout.show(cardPanel, "hackathon");
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                rHackathonPanel.setBackground(UIColors.CARMINE_RED);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                rHackathonPanel.setBackground(UIColors.NIGHT_BLUE);
-            }
-        });
-
-        // Listener per Team
         rTeamPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                if (controller.getCurrentHackathon() == null) {
-                    JOptionPane.showMessageDialog(MainFrame.this,
-                            "Devi prima iscriverti a un Hackathon dalla Dashboard!",
-                            "Accesso Negato", JOptionPane.WARNING_MESSAGE);
-                    return;
+                try {
+                    if (controller.getCurrentHackathon() == null) {
+                        JOptionPane.showMessageDialog(MainFrame.this, "Iscriviti prima a un Hackathon!", "Accesso Negato", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                    teamCard.refreshData();
+                    cardLayout.show(cardPanel, "team");
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(MainFrame.this, "Errore connessione: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                 }
-                teamCard.refreshData();
-                cardLayout.show(cardPanel, "team");
             }
 
             @Override
@@ -205,51 +185,13 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // Listener per Manage (Organizer)
-        rManagePanel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                organizerCard.refreshData();
-                cardLayout.show(cardPanel, "manage");
-            }
+        rManagePanel.addMouseListener(new SidebarListener(rManagePanel, "manage", () -> organizerCard.refreshData()));
+        rEvaluationPanel.addMouseListener(new SidebarListener(rEvaluationPanel, "evaluation", () -> judgeCard.refreshData()));
 
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                rManagePanel.setBackground(UIColors.CARMINE_RED);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                rManagePanel.setBackground(UIColors.NIGHT_BLUE);
-            }
-        });
-
-        // Listener per Evaluation (Judge)
-        rEvaluationPanel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                judgeCard.refreshData();
-                cardLayout.show(cardPanel, "evaluation");
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                rEvaluationPanel.setBackground(UIColors.CARMINE_RED);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                rEvaluationPanel.setBackground(UIColors.NIGHT_BLUE);
-            }
-        });
-
-        // Listener per Logout
         rLogoutPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 dispose();
-                // Assicurati che il nome della classe AuthFrame sia corretto nel tuo progetto
-                // new AuthFrame(new Controller()).setVisible(true);
             }
 
             @Override
@@ -262,6 +204,46 @@ public class MainFrame extends JFrame {
                 rLogoutPanel.setBackground(UIColors.NIGHT_BLUE);
             }
         });
+    }
+
+    /**
+     * Classe interna per gestire i listener della sidebar riducendo la duplicazione di codice.
+     */
+    private class SidebarListener extends MouseAdapter {
+        private final JPanel panel;
+        private final String cardId;
+        private final Runnable refreshAction;
+
+        public SidebarListener(JPanel panel, String cardId, Runnable refreshAction) {
+            this.panel = panel;
+            this.cardId = cardId;
+            this.refreshAction = refreshAction;
+        }
+
+        @Override
+        public void mousePressed(MouseEvent e) {
+            if (refreshAction != null) refreshAction.run();
+            cardLayout.show(cardPanel, cardId);
+        }
+
+        @Override
+        public void mouseEntered(MouseEvent e) {
+            panel.setBackground(UIColors.CARMINE_RED);
+        }
+
+        @Override
+        public void mouseExited(MouseEvent e) {
+            panel.setBackground(UIColors.NIGHT_BLUE);
+        }
+    }
+
+    private void createUIComponents() {
+        rDashboardPanel = new RoundedPanel();
+        rHackathonPanel = new RoundedPanel();
+        rTeamPanel = new RoundedPanel();
+        rManagePanel = new RoundedPanel();
+        rEvaluationPanel = new RoundedPanel();
+        rLogoutPanel = new RoundedPanel();
     }
 
     /**
@@ -366,4 +348,5 @@ public class MainFrame extends JFrame {
     public JComponent $$$getRootComponent$$$() {
         return rootPanel;
     }
+
 }

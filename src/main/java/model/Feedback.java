@@ -36,11 +36,11 @@ public class Feedback {
      * @param documentId L'ID del documento valutato.
      */
     public Feedback(int feedbackId, String comment, LocalDateTime date, int judgeId, int documentId) {
-        this.feedbackId = feedbackId;
-        this.comment = comment;
-        this.date = date;
-        this.judgeId = judgeId;
-        this.documentId = documentId;
+        setFeedbackId(feedbackId);
+        setComment(comment);
+        setDate(date);
+        setJudgeId(judgeId);
+        setDocumentId(documentId);
     }
 
     /**
@@ -52,9 +52,9 @@ public class Feedback {
      * @param date      La data di rilascio del feedback.
      */
     public Feedback(String comment, String judgeName, LocalDateTime date) {
-        this.comment = comment;
-        this.judgeName = judgeName;
-        this.date = date;
+        setComment(comment);
+        setJudgeName(judgeName);
+        setDate(date);
     }
 
     // --- GETTERS & SETTERS ---
@@ -67,7 +67,10 @@ public class Feedback {
     /**
      * @param feedbackId L'ID univoco da assegnare.
      */
-    public void setFeedbackId(int feedbackId) { this.feedbackId = feedbackId; }
+    public void setFeedbackId(int feedbackId) {
+        if (feedbackId < 0) throw new IllegalArgumentException("Feedback ID cannot be negative.");
+        this.feedbackId = feedbackId;
+    }
 
     /**
      * @return Il corpo testuale della valutazione.
@@ -77,7 +80,10 @@ public class Feedback {
     /**
      * @param comment Il testo della valutazione.
      */
-    public void setComment(String comment) { this.comment = comment; }
+    public void setComment(String comment) {
+        if (comment == null || comment.trim().isEmpty()) throw new IllegalArgumentException("Feedback comment cannot be null or empty.");
+        this.comment = comment;
+    }
 
     /**
      * @return La data di emissione del feedback.
@@ -87,7 +93,10 @@ public class Feedback {
     /**
      * @param date La data da impostare.
      */
-    public void setDate(LocalDateTime date) { this.date = date; }
+    public void setDate(LocalDateTime date) {
+        if (date == null) throw new IllegalArgumentException("Feedback date cannot be null.");
+        this.date = date;
+    }
 
     /**
      * @return L'ID del giudice associato.
@@ -97,7 +106,10 @@ public class Feedback {
     /**
      * @param judgeId L'ID del giudice da registrare.
      */
-    public void setJudgeId(int judgeId) { this.judgeId = judgeId; }
+    public void setJudgeId(int judgeId) {
+        if (judgeId <= 0) throw new IllegalArgumentException("Judge ID must be greater than zero.");
+        this.judgeId = judgeId;
+    }
 
     /**
      * @return L'ID del documento valutato.
@@ -107,7 +119,10 @@ public class Feedback {
     /**
      * @param documentId L'ID del documento da associare.
      */
-    public void setDocumentId(int documentId) { this.documentId = documentId; }
+    public void setDocumentId(int documentId) {
+        if (documentId <= 0) throw new IllegalArgumentException("Document ID must be greater than zero.");
+        this.documentId = documentId;
+    }
 
     /**
      * @return Il nome del giudice (aggregato in fase di fetch).
@@ -117,7 +132,10 @@ public class Feedback {
     /**
      * @param judgeName Il nome del giudice da associare all'istanza.
      */
-    public void setJudgeName(String judgeName) { this.judgeName = judgeName; }
+    public void setJudgeName(String judgeName) {
+        if (judgeName == null || judgeName.trim().isEmpty()) throw new IllegalArgumentException("Judge name cannot be null or empty.");
+        this.judgeName = judgeName;
+    }
 
     /**
      * Restituisce una rappresentazione in formato stringa dell'oggetto,

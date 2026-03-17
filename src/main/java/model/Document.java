@@ -37,12 +37,12 @@ public class Document {
      */
     public Document(int documentId, String name, String url,
                     LocalDateTime uploadDate, int teamId, int hackathonId) {
-        this.documentId = documentId;
-        this.name = name;
-        this.url = url;
-        this.uploadDate = uploadDate;
-        this.teamId = teamId;
-        this.hackathonId = hackathonId;
+        setDocumentId(documentId);
+        setName(name);
+        setUrl(url);
+        setUploadDate(uploadDate);
+        setTeamId(teamId);
+        setHackathonId(hackathonId);
     }
 
     /**
@@ -53,7 +53,10 @@ public class Document {
     /**
      * @param documentId L'ID univoco da assegnare al documento.
      */
-    public void setDocumentId(int documentId) { this.documentId = documentId; }
+    public void setDocumentId(int documentId) {
+        if (documentId < 0) throw new IllegalArgumentException("Document ID cannot be negative.");
+        this.documentId = documentId;
+    }
 
     /**
      * @return Il nome o la descrizione associata.
@@ -63,7 +66,10 @@ public class Document {
     /**
      * @param name Il nome da assegnare al documento.
      */
-    public void setName(String name) { this.name = name; }
+    public void setName(String name) {
+        if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Document name cannot be null or empty.");
+        this.name = name;
+    }
 
     /**
      * @return L'indirizzo URL della risorsa.
@@ -73,7 +79,10 @@ public class Document {
     /**
      * @param url L'indirizzo URL da salvare.
      */
-    public void setUrl(String url) { this.url = url; }
+    public void setUrl(String url) {
+        if (url == null || url.trim().isEmpty()) throw new IllegalArgumentException("Document URL cannot be null or empty.");
+        this.url = url;
+    }
 
     /**
      * @return Il timestamp esatto del caricamento.
@@ -83,7 +92,10 @@ public class Document {
     /**
      * @param uploadDate Il timestamp del caricamento.
      */
-    public void setUploadDate(LocalDateTime uploadDate) { this.uploadDate = uploadDate; }
+    public void setUploadDate(LocalDateTime uploadDate) {
+        if (uploadDate == null) throw new IllegalArgumentException("Upload date cannot be null.");
+        this.uploadDate = uploadDate;
+    }
 
     /**
      * @return L'ID del team proprietario.
@@ -93,7 +105,10 @@ public class Document {
     /**
      * @param teamId L'ID del team da associare.
      */
-    public void setTeamId(int teamId) { this.teamId = teamId; }
+    public void setTeamId(int teamId) {
+        if (teamId < 0) throw new IllegalArgumentException("Team ID must be greater than zero.");
+        this.teamId = teamId;
+    }
 
     /**
      * @return L'ID dell'hackathon associato.
@@ -103,5 +118,8 @@ public class Document {
     /**
      * @param hackathonId L'ID dell'hackathon da associare.
      */
-    public void setHackathonId(int hackathonId) { this.hackathonId = hackathonId; }
+    public void setHackathonId(int hackathonId) {
+        if (hackathonId < 0) throw new IllegalArgumentException("Hackathon ID must be greater than zero.");
+        this.hackathonId = hackathonId;
+    }
 }

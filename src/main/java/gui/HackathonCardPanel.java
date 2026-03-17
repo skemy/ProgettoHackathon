@@ -14,11 +14,23 @@ import javax.swing.text.StyleContext;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Pannello della Dashboard dedicato alla visualizzazione dei dettagli di un Hackathon.
+ * Permette agli organizzatori di modificare il Problem Statement e pubblicare le classifiche.
+ * <p>
+ * Nota Architetturale: Gestisce internamente le SQLException propagate dal Layer Control,
+ * garantendo un feedback visivo all'utente e rispettando il pattern Boundary.
+ */
+@SuppressWarnings("java:S1450") // Sopprime il warning per i campi generati dal GUI Designer
 public class HackathonCardPanel {
+
+    private static final String ERROR_TITLE = "Database Error";
+
     private JPanel rootPanel;
     private JLabel hackathonLabel;
     private JLabel infoLabel;
@@ -65,22 +77,25 @@ public class HackathonCardPanel {
     private JPanel rMaxTeamSizeContentPanel;
     private JLabel maxParticipantsContentLabel;
     private JLabel maxTeamSizeContentLabel;
+    private static final String SAMPLE_TEXT = "sample_text";
 
     private final Controller controller;
     private boolean isEditingMode = false;
 
+    /**
+     * Costruttore del pannello.
+     *
+     * @param controller Istanza del Controller per le operazioni di logica.
+     */
     public HackathonCardPanel(Controller controller) {
         this.controller = controller;
         $$$setupUI$$$();
         customizeComponents();
         setupEditLogic();
         setupRankingLogic();
-        refreshData(false);
+        refreshData();
     }
 
-    /**
-     * Spostiamo la stringa HTML qui per non appesantire il compilatore della GUI.
-     */
     private String getRankingRulesHtml() {
         return "<html><div style='text-align: left; color: gray; font-size: 10px; margin-bottom: 5px; width: 100%;'>" +
                 "<b>Ranking Criteria:</b><br>" +
@@ -90,42 +105,51 @@ public class HackathonCardPanel {
                 "<i>Note: Teams without uploaded documents receive a score of 0.</i></div></html>";
     }
 
-    public void refreshData(boolean showPopup) {
-        Hackathon current = controller.getCurrentHackathon();
-        if (current == null) {
-            infoLabel.setText("You are currently not registered for an event.");
-            clearFields();
-            rPublishPanel.setVisible(false);
+    /**
+     * Aggiorna i dati mostrati a schermo recuperando lo stato attuale dell'Hackathon.
+     * Gestisce la 'SQLException' del Controller.
+     */
+    public void refreshData() { // Rimosso parametro inutilizzato (Sonar S1172)
+        try {
+            Hackathon current = controller.getCurrentHackathon();
+            if (current == null) {
+                infoLabel.setText("You are currently not registered for an event.");
+                clearFields();
+                rPublishPanel.setVisible(false);
+                rankingListPanel.removeAll();
+                return;
+            }
+
+            infoLabel.setText("Active Event: " + current.getTitle());
+            populateFields(current);
+            problemStatementTextArea.setText((current.getProblemDescription() == null || current.getProblemDescription().isBlank()) ?
+                    "The problem statement is currently not available." : current.getProblemDescription());
+
             rankingListPanel.removeAll();
-            return;
+            if (rankingInfoLabel != null) rankingInfoLabel.setVisible(false);
+
+            boolean isEventOver = LocalDateTime.now().isAfter(current.getEndDate());
+            if (isEventOver) {
+                rPublishPanel.setVisible(false);
+                loadRanking(true);
+            } else if (controller.isCurrentUserOrganizer()) {
+                rPublishPanel.setVisible(true);
+                publishLabel.setText("Refresh Live Ranking");
+                loadRanking(false);
+            } else {
+                rPublishPanel.setVisible(false);
+                JLabel pendingLabel = new JLabel("<html><i>The event is still ongoing. Results pending.</i></html>");
+                pendingLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                rankingListPanel.add(pendingLabel);
+            }
+
+            disableEditingUI();
+            rankingListPanel.revalidate();
+            rankingListPanel.repaint();
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(rootPanel, "Unable to load hackathon data: " + e.getMessage(), ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
         }
-
-        infoLabel.setText("Active Event: " + current.getTitle());
-        populateFields(current);
-        problemStatementTextArea.setText((current.getProblemDescription() == null || current.getProblemDescription().isBlank()) ?
-                "The problem statement is currently not available." : current.getProblemDescription());
-
-        rankingListPanel.removeAll();
-        if (rankingInfoLabel != null) rankingInfoLabel.setVisible(false);
-
-        boolean isEventOver = LocalDateTime.now().isAfter(current.getEndDate());
-        if (isEventOver) {
-            rPublishPanel.setVisible(false);
-            loadRanking(true);
-        } else if (controller.isCurrentUserOrganizer()) {
-            rPublishPanel.setVisible(true);
-            publishLabel.setText("Refresh Live Ranking");
-            loadRanking(false);
-        } else {
-            rPublishPanel.setVisible(false);
-            JLabel pendingLabel = new JLabel("<html><i>The event is still ongoing. Results pending.</i></html>");
-            pendingLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-            rankingListPanel.add(pendingLabel);
-        }
-
-        disableEditingUI();
-        rankingListPanel.revalidate();
-        rankingListPanel.repaint();
     }
 
     private void customizeComponents() {
@@ -172,17 +196,29 @@ public class HackathonCardPanel {
 
     private void handleEditToggle() {
         if (!isEditingMode) {
+            // Entra in modalità modifica
             isEditingMode = true;
             problemStatementTextArea.setEditable(true);
             problemStatementTextArea.setBackground(Color.WHITE);
             problemStatementTextArea.setOpaque(true);
             editLabel.setText("Save");
-            rEditPanel.setBackground(new Color(46, 204, 113));
+            rEditPanel.setBackground(new Color(46, 204, 113)); // Verde
         } else {
+            // Tenta di salvare le modifiche
             if (JOptionPane.showConfirmDialog(rootPanel, "Save new Problem Statement?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-                if (controller.updateHackathonProblem(problemStatementTextArea.getText())) {
-                    disableEditingUI();
-                    problemStatementTextArea.setOpaque(false);
+                try {
+                    if (controller.updateHackathonProblem(problemStatementTextArea.getText())) {
+                        disableEditingUI();
+                        problemStatementTextArea.setOpaque(false);
+                        JOptionPane.showMessageDialog(rootPanel, "Statement updated successfully!");
+                    }
+                } catch (SQLException ex) {
+                    // Errore tecnico del database
+                    JOptionPane.showMessageDialog(rootPanel, "Database error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } catch (IllegalStateException ex) {
+                    // ERRORE DI LOGICA (Evento terminato) - Ora gestito correttamente!
+                    JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Action Denied", JOptionPane.WARNING_MESSAGE);
+                    disableEditingUI(); // Esci dalla modalità edit poiché non permessa
                 }
             }
         }
@@ -217,12 +253,14 @@ public class HackathonCardPanel {
                     rankingListPanel.add(Box.createVerticalStrut(5));
                 }
             }
-        } catch (Exception ex) {
+        } catch (SQLException ex) {
+            rankingListPanel.add(new JLabel("<html><i>Database Error: " + ex.getMessage() + "</i></html>"));
+        } catch (IllegalStateException ex) {
             rankingListPanel.add(new JLabel("<html><i>" + ex.getMessage() + "</i></html>"));
         }
     }
 
-    private void populateFields(Hackathon h) {
+    private void populateFields(Hackathon h) throws SQLException {
         titleContentLabel.setText(h.getTitle());
         locationContentLabel.setText(h.getLocation());
         startDateContentLabel.setText(h.getStartDate().toLocalDate().toString());
@@ -230,6 +268,7 @@ public class HackathonCardPanel {
         deadlineContentLabel.setText(h.getRegistrationEndDate().toLocalDate().toString());
         maxParticipantsContentLabel.setText(String.valueOf(h.getMaxParticipants()));
         maxTeamSizeContentLabel.setText(String.valueOf(h.getMaxTeamSize()));
+        // Gestione della SQLException per getOrganizerNameForHackathon
         organizerContentLabel.setText("@" + controller.getOrganizerNameForHackathon(h.getHackathonId()));
     }
 
@@ -598,4 +637,5 @@ public class HackathonCardPanel {
     public JComponent $$$getRootComponent$$$() {
         return rootPanel;
     }
+
 }

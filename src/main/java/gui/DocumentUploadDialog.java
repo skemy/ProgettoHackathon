@@ -14,19 +14,34 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+/**
+ * Dialogo modale per il caricamento di documenti e link di progetto (Layer Boundary).
+ * <p>
+ * Nota Architetturale: Questa classe gestisce esclusivamente l'interazione utente.
+ * La validazione dei permessi e la persistenza dei dati sono delegate al Controller
+ * per garantire il rispetto dei principi BCE e DRY.
+ */
 public class DocumentUploadDialog extends JDialog {
+
+    private static final Logger LOGGER = Logger.getLogger(DocumentUploadDialog.class.getName());
+
     private JPanel rootPanel;
     private JTextField nameField;
     private JTextField urlField;
-    private JPanel rUploadPanel; // Gestito da createUIComponents
+    private JPanel rUploadPanel;
     private JLabel uploadLabel;
 
+    /**
+     * Inizializza il dialogo di caricamento documenti.
+     *
+     * @param parent     Il frame genitore per la modalità della finestra.
+     * @param controller Il coordinatore centrale del sistema.
+     */
     public DocumentUploadDialog(JFrame parent, Controller controller) {
         super(parent, "Upload Document", true);
-
-        // Non serve chiamare createUIComponents qui, lo fa IntelliJ in automatico
-        // prima di eseguire il resto del costruttore.
 
         $$$setupUI$$$();
         setContentPane(rootPanel);
@@ -38,31 +53,25 @@ public class DocumentUploadDialog extends JDialog {
         setupListeners(controller);
     }
 
+    /**
+     * Configura l'estetica del pannello utilizzando i colori centralizzati.
+     */
     private void customizeStyle() {
         rUploadPanel.setBackground(UIColors.NIGHT_BLUE);
         uploadLabel.setForeground(Color.WHITE);
         rUploadPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
+    /**
+     * Configura i listener per la gestione dell'upload e degli effetti hover.
+     *
+     * @param controller Istanza del Controller per l'esecuzione dell'azione.
+     */
     private void setupListeners(Controller controller) {
         rUploadPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                String name = nameField.getText().trim();
-                String url = urlField.getText().trim();
-
-                if (name.isEmpty() || url.isEmpty()) {
-                    JOptionPane.showMessageDialog(rootPanel, "All fields are required!", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                try {
-                    controller.addDocumentAction(name, url); //
-                    JOptionPane.showMessageDialog(rootPanel, "Document uploaded successfully!", "Done", JOptionPane.INFORMATION_MESSAGE);
-                    dispose();
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
+                processUpload(controller);
             }
 
             @Override
@@ -78,11 +87,40 @@ public class DocumentUploadDialog extends JDialog {
     }
 
     /**
-     * Metodo magico per IntelliJ GUI Designer.
-     * Risolve l'errore: "Form contains components with Custom Create option but no createUIComponents() method"
+     * Esegue la logica di validazione superficiale e invoca il Controller.
+     */
+    private void processUpload(Controller controller) {
+        String name = nameField.getText().trim();
+        String url = urlField.getText().trim();
+
+        if (name.isEmpty() || url.isEmpty()) {
+            JOptionPane.showMessageDialog(rootPanel, "All fields are required!", "Validation Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try {
+            // Delega l'azione al Controller (Layer Control)
+            controller.addDocumentAction(name, url);
+
+            LOGGER.log(Level.INFO, "User initiated document upload: {0}", name);
+            JOptionPane.showMessageDialog(rootPanel, "Document uploaded successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            dispose();
+
+        } catch (IllegalStateException ex) {
+            // Gestione di errori di stato (es. utente non partecipante)
+            LOGGER.log(Level.WARNING, "Upload blocked by controller: {0}", ex.getMessage());
+            JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception ex) {
+            // Gestione errori imprevisti o SQL propagati dai DAO
+            LOGGER.log(Level.SEVERE, "Unexpected error during document upload", ex);
+            JOptionPane.showMessageDialog(rootPanel, "An error occurred while uploading. Please try again.", "System Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Inizializzazione manuale dei componenti custom richiesti dal designer.
      */
     private void createUIComponents() {
-        // Qui istanziamo manualmente i componenti che nel .form hanno "Custom Create" spuntato
         rUploadPanel = new RoundedPanel();
     }
 
@@ -151,4 +189,5 @@ public class DocumentUploadDialog extends JDialog {
     public JComponent $$$getRootComponent$$$() {
         return rootPanel;
     }
+
 }

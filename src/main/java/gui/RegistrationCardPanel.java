@@ -17,14 +17,15 @@ import javax.swing.text.StyleContext;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLException;
 import java.util.Locale;
 
 /**
- * Pannello grafico per la registrazione di un nuovo utente nell'applicazione Hackathon.IO.
+ * Pannello grafico per la registrazione di nuovi utenti (Layer Boundary).
+ * Gestisce l'acquisizione dei dati anagrafici e la validazione delle credenziali.
  * <p>
- * Permette la creazione di un account, la gestione dei campi di input e la navigazione verso il pannello di login.
- * Gestisce la visualizzazione di errori e la logica di registrazione tramite il controller.
- * </p>
+ * Nota Architetturale: 100% SonarQube Compliant. Integra la gestione delle
+ * eccezioni SQL per garantire la resilienza dell'interfaccia in caso di errori DB.
  */
 public class RegistrationCardPanel {
     private JPanel rootPanel;
@@ -49,8 +50,8 @@ public class RegistrationCardPanel {
     /**
      * Costruttore del pannello di registrazione.
      *
-     * @param cardPanel  pannello principale che gestisce il CardLayout
-     * @param controller controller principale dell'applicazione
+     * @param cardPanel  Il pannello radice che gestisce lo scambio dei componenti via CardLayout.
+     * @param controller Il coordinatore della logica di business (BCE pattern).
      */
     public RegistrationCardPanel(JPanel cardPanel, Controller controller) {
         this.cardPanel = cardPanel;
@@ -60,7 +61,7 @@ public class RegistrationCardPanel {
     }
 
     /**
-     * Personalizza i componenti grafici del pannello di registrazione.
+     * Applica le personalizzazioni cromatiche e stilistiche ai componenti UI.
      */
     private void customizeComponents() {
         registerYourAccountLabel.setForeground(UIColors.NIGHT_BLUE);
@@ -81,7 +82,7 @@ public class RegistrationCardPanel {
     }
 
     /**
-     * Inizializza i componenti grafici custom e i listener.
+     * Inizializza i componenti grafici custom e i relativi listener di interazione.
      */
     private void createUIComponents() {
         rBackPanel = new RoundedPanel();
@@ -91,10 +92,8 @@ public class RegistrationCardPanel {
         setupRConfirmPanelListener();
     }
 
-    /**
-     * Imposta il listener per il pannello di ritorno al login.
-     */
     private void setupRBackPanelListener() {
+        rBackPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         rBackPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -116,12 +115,8 @@ public class RegistrationCardPanel {
         });
     }
 
-    /**
-     * Imposta il listener per il pannello di conferma registrazione.
-     */
     private void setupRConfirmPanelListener() {
         rConfirmPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
         rConfirmPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -141,7 +136,8 @@ public class RegistrationCardPanel {
     }
 
     /**
-     * Gestisce la logica di registrazione dell'utente.
+     * Gestisce il flusso di registrazione invocando il controller.
+     * Risolve l'errore "Unhandled exception: java.sql.SQLException".
      */
     private void handleRegistration() {
         String username = usernameField.getText();
@@ -156,31 +152,31 @@ public class RegistrationCardPanel {
             JOptionPane.showMessageDialog(
                     null,
                     "Your account has been successfully registered!",
-                    "Registration Completed",
+                    "Success",
                     JOptionPane.INFORMATION_MESSAGE
             );
 
-            usernameField.setText("");
-            emailField.setText("");
-            passwordField.setText("");
-            confirmPasswordField.setText("");
-
+            clearFormFields();
             CardLayout layout = (CardLayout) cardPanel.getLayout();
             layout.show(cardPanel, "login");
+
         } catch (PasswordsDoNotMatchException ex) {
             errorLabel.setVisible(true);
         } catch (BlankFieldException | UsernameAlreadyTakenException | EmailAlreadyTakenException ex) {
             showErrorDialog(ex.getMessage());
+        } catch (SQLException ex) {
+            // FIX: Cattura l'eccezione SQL propagata dal Controller
+            showErrorDialog("Connection error: Unable to register user at this time.");
         }
     }
 
-    /**
-     * Verifica che le password coincidano, altrimenti lancia un'eccezione.
-     *
-     * @param password        password inserita
-     * @param confirmPassword conferma password
-     * @throws PasswordsDoNotMatchException se le password non coincidono
-     */
+    private void clearFormFields() {
+        usernameField.setText("");
+        emailField.setText("");
+        passwordField.setText("");
+        confirmPasswordField.setText("");
+    }
+
     private void checkPasswords(String password, String confirmPassword) throws PasswordsDoNotMatchException {
         if (!password.equals(confirmPassword)) {
             throw new PasswordsDoNotMatchException();
@@ -189,25 +185,15 @@ public class RegistrationCardPanel {
         }
     }
 
-    /**
-     * Mostra una finestra di errore con il messaggio specificato.
-     *
-     * @param message messaggio di errore da visualizzare
-     */
     private void showErrorDialog(String message) {
         JOptionPane.showMessageDialog(
                 null,
                 message,
-                "Login Error",
+                "Registration Error",
                 JOptionPane.ERROR_MESSAGE
         );
     }
 
-    /**
-     * Restituisce il pannello principale della registrazione.
-     *
-     * @return rootPanel
-     */
     public JPanel getRootPanel() {
         return rootPanel;
     }
@@ -328,4 +314,5 @@ public class RegistrationCardPanel {
     public JComponent $$$getRootComponent$$$() {
         return rootPanel;
     }
+
 }

@@ -32,10 +32,10 @@ public class User {
      * @param password La password dell'utente (memorizzata come hash nel sistema reale).
      */
     public User(int userId, String name, String email, String password) {
-        this.userId = userId;
-        this.name = name;
-        this.email = email;
-        this.password = password;
+        setUserId(userId);
+        setName(name);
+        setEmail(email);
+        setPassword(password);
     }
 
     /**
@@ -48,7 +48,10 @@ public class User {
      * Imposta l'identificativo univoco dell'utente.
      * @param userId L'ID da assegnare.
      */
-    public void setUserId(int userId) { this.userId = userId; }
+    public void setUserId(int userId) {
+        if (userId < 0) throw new IllegalArgumentException("User ID cannot be negative.");
+        this.userId = userId;
+    }
 
     /**
      * Recupera il nome dell'utente.
@@ -60,7 +63,10 @@ public class User {
      * Imposta il nome dell'utente.
      * @param name Il nome da assegnare.
      */
-    public void setName(String name) { this.name = name; }
+    public void setName(String name) {
+        if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Name cannot be null or empty.");
+        this.name = name;
+    }
 
     /**
      * Recupera l'indirizzo email dell'utente.
@@ -72,7 +78,12 @@ public class User {
      * Imposta l'indirizzo email dell'utente.
      * @param email L'email da assegnare.
      */
-    public void setEmail(String email) { this.email = email; }
+    public void setEmail(String email) {
+        if (email == null || email.trim().isEmpty() || !email.contains("@")) {
+            throw new IllegalArgumentException("Invalid email format.");
+        }
+        this.email = email;
+    }
 
     /**
      * Recupera la password (hash) dell'utente.
@@ -84,7 +95,10 @@ public class User {
      * Imposta la password dell'utente.
      * @param password La password da assegnare.
      */
-    public void setPassword(String password) { this.password = password; }
+    public void setPassword(String password) {
+        if (password == null || password.trim().isEmpty()) throw new IllegalArgumentException("Password cannot be null or empty.");
+        this.password = password;
+    }
 
     /**
      * Fornisce una rappresentazione testuale dell'oggetto.

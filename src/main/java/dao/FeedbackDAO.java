@@ -1,13 +1,12 @@
 package dao;
 
+import exceptions.BlankFieldException;
 import model.Feedback;
+import java.sql.SQLException;
 import java.util.List;
 
-/**
- * Interfaccia DAO per la gestione dei Feedback.
- */
 public interface FeedbackDAO {
-    boolean saveOrUpdateFeedback(int judgeId, int documentId, String text);
-    String getFeedbackText(int judgeId, int documentId);
-    List<Feedback> getAllFeedbacksForDocument(int documentId);
+    boolean saveOrUpdateFeedback(int judgeId, int documentId, String text) throws SQLException, BlankFieldException;
+    String getFeedbackText(int judgeId, int documentId) throws SQLException;
+    List<Feedback> getAllFeedbacksForDocument(int documentId) throws SQLException;
 }

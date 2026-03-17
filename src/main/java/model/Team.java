@@ -36,11 +36,11 @@ public class Team {
      * @param hackathonId  L'identificativo dell'hackathon di riferimento.
      */
     public Team(int teamId, String teamName, String accessCode, LocalDateTime creationDate, int hackathonId) {
-        this.teamId = teamId;
-        this.teamName = teamName;
-        this.accessCode = accessCode;
-        this.creationDate = creationDate;
-        this.hackathonId = hackathonId;
+        setTeamId(teamId);
+        setTeamName(teamName);
+        setAccessCode(accessCode);
+        setCreationDate(creationDate);
+        setHackathonId(hackathonId);
     }
 
     /**
@@ -56,6 +56,7 @@ public class Team {
      * * @param teamId L'ID da assegnare.
      */
     public void setTeamId(int teamId) {
+        if (teamId < 0) throw new IllegalArgumentException("Team ID cannot be negative.");
         this.teamId = teamId;
     }
 
@@ -72,6 +73,9 @@ public class Team {
      * * @param teamName Il nome da assegnare.
      */
     public void setTeamName(String teamName) {
+        if (teamName == null || teamName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Team name cannot be null or empty.");
+        }
         this.teamName = teamName;
     }
 
@@ -88,7 +92,7 @@ public class Team {
      * * @param accessCode Il codice da assegnare.
      */
     public void setAccessCode(String accessCode) {
-        this.accessCode = accessCode;
+        this.accessCode = accessCode; // Nessuna eccezione qui, il codice potrebbe venire generato o assegnato a posteriori
     }
 
     /**
@@ -120,6 +124,7 @@ public class Team {
      * * @param hackathonId L'ID dell'hackathon di riferimento.
      */
     public void setHackathonId(int hackathonId) {
+        if (hackathonId <= 0) throw new IllegalArgumentException("Hackathon ID must be greater than zero.");
         this.hackathonId = hackathonId;
     }
 }

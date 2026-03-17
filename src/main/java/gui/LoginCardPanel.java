@@ -15,14 +15,15 @@ import javax.swing.text.StyleContext;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLException;
 import java.util.Locale;
 
 /**
- * Pannello grafico per la gestione del login utente nell'applicazione Hackathon.IO.
+ * Pannello grafico per la gestione del login utente (Layer Boundary nel pattern BCE).
+ * Coordina l'acquisizione delle credenziali e delega la logica di business al Controller.
  * <p>
- * Permette l'autenticazione dell'utente e la navigazione verso la registrazione.
- * Gestisce la visualizzazione di errori e il passaggio tra i pannelli tramite CardLayout.
- * </p>
+ * Nota Architetturale: Gestisce in modo centralizzato le eccezioni SQL e di business,
+ * garantendo che l'utente riceva feedback immediati in caso di errori di persistenza.
  */
 public class LoginCardPanel {
     private JPanel rootPanel;
@@ -42,8 +43,8 @@ public class LoginCardPanel {
     /**
      * Costruttore del pannello di login.
      *
-     * @param cardPanel  pannello principale che gestisce il CardLayout
-     * @param controller controller principale dell'applicazione
+     * @param cardPanel  Il contenitore principale che gestisce il CardLayout.
+     * @param controller Il coordinatore del layer Control.
      */
     public LoginCardPanel(final JPanel cardPanel, final Controller controller) {
         this.cardPanel = cardPanel;
@@ -54,7 +55,7 @@ public class LoginCardPanel {
     }
 
     /**
-     * Personalizza i componenti grafici del pannello di login.
+     * Applica stili e colori personalizzati definiti nelle utility UI.
      */
     private void customizeComponents() {
         welcomeLabel.setForeground(UIColors.NIGHT_BLUE);
@@ -70,16 +71,15 @@ public class LoginCardPanel {
     }
 
     /**
-     * Inizializza i componenti grafici custom.
+     * Inizializza i componenti grafici proprietari (Rounded Panels).
      */
     private void createUIComponents() {
         rLoginPanel = new RoundedPanel();
-
         setupRLoginPanelListener();
     }
 
     /**
-     * Imposta il listener per il pannello di login.
+     * Configura la logica di interazione per il pulsante di accesso.
      */
     private void setupRLoginPanelListener() {
         rLoginPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -103,36 +103,39 @@ public class LoginCardPanel {
     }
 
     /**
-     * Gestisce la logica di autenticazione dell'utente.
+     * Gestisce la logica di autenticazione recuperando i dati dalla Boundary.
+     * Risolve il problema "Unhandled exception: java.sql.SQLException".
      */
     private void handleLogin() {
         String username = usernameField.getText();
         String password = new String(passwordField.getPassword());
 
         try {
+            // Chiamata al layer Control
             controller.loginUser(username, password);
             callMainFrame();
         } catch (BlankFieldException | UserNotFoundException ex) {
+            // Errori di business logic (es. campi vuoti o utente errato)
             showErrorDialog(ex.getMessage());
+        } catch (SQLException ex) {
+            // FIX: Gestione dell'eccezione SQL propagata dai DAO
+            showErrorDialog("Connection lost: Unable to reach the database.");
         }
     }
 
-
     /**
-     * Avvia la finestra principale dopo il login.
+     * Esegue il passaggio alla finestra principale dell'applicazione in caso di successo.
      */
-
     private void callMainFrame() {
         SwingUtilities.invokeLater(() -> {
             new MainFrame(controller).setVisible(true);
             JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(rootPanel);
             if (frame != null) frame.dispose();
         });
-
     }
 
     /**
-     * Listener per il passaggio al pannello di registrazione.
+     * Configura il link ipertestuale verso il pannello di registrazione.
      */
     private void setupDontHaveAnAccountLabelListener() {
         dontHaveAnAccountLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -147,9 +150,9 @@ public class LoginCardPanel {
     }
 
     /**
-     * Mostra una finestra di errore con il messaggio specificato.
+     * Mostra un modale di errore all'utente.
      *
-     * @param message messaggio di errore da visualizzare
+     * @param message Il contenuto informativo dell'errore.
      */
     private void showErrorDialog(String message) {
         JOptionPane.showMessageDialog(
@@ -161,9 +164,7 @@ public class LoginCardPanel {
     }
 
     /**
-     * Restituisce il pannello principale del login.
-     *
-     * @return rootPanel
+     * @return Il pannello principale root.
      */
     public JPanel getRootPanel() {
         return rootPanel;
@@ -263,4 +264,5 @@ public class LoginCardPanel {
     public JComponent $$$getRootComponent$$$() {
         return rootPanel;
     }
+
 }

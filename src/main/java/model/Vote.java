@@ -31,10 +31,10 @@ public class Vote {
      * @param score   Il punteggio assegnato (solitamente in un range 1-10).
      */
     public Vote(int voteId, int judgeId, int teamId, int score) {
-        this.voteId = voteId;
-        this.judgeId = judgeId;
-        this.teamId = teamId;
-        this.score = score;
+        setVoteId(voteId);
+        setJudgeId(judgeId);
+        setTeamId(teamId);
+        setScore(score);
     }
 
     /**
@@ -47,7 +47,10 @@ public class Vote {
      * Imposta l'ID univoco del voto.
      * @param voteId L'identificativo da assegnare.
      */
-    public void setVoteId(int voteId) { this.voteId = voteId; }
+    public void setVoteId(int voteId) {
+        if (voteId < 0) throw new IllegalArgumentException("Vote ID cannot be negative.");
+        this.voteId = voteId;
+    }
 
     /**
      * Recupera l'ID del giudice autore della valutazione.
@@ -59,7 +62,10 @@ public class Vote {
      * Imposta l'ID del giudice autore della valutazione.
      * @param judgeId L'identificativo del giudice da associare.
      */
-    public void setJudgeId(int judgeId) { this.judgeId = judgeId; }
+    public void setJudgeId(int judgeId) {
+        if (judgeId <= 0) throw new IllegalArgumentException("Judge ID must be greater than zero.");
+        this.judgeId = judgeId;
+    }
 
     /**
      * Recupera l'ID del team valutato.
@@ -71,7 +77,10 @@ public class Vote {
      * Imposta l'ID del team da valutare.
      * @param teamId L'identificativo del team da associare.
      */
-    public void setTeamId(int teamId) { this.teamId = teamId; }
+    public void setTeamId(int teamId) {
+        if (teamId <= 0) throw new IllegalArgumentException("Team ID must be greater than zero.");
+        this.teamId = teamId;
+    }
 
     /**
      * Recupera il punteggio assegnato.
@@ -81,7 +90,11 @@ public class Vote {
 
     /**
      * Definisce il punteggio della valutazione.
+     * Garantisce l'integrità dei dati eliminando la Primitive Obsession per questo parametro.
      * @param score Il punteggio da assegnare.
      */
-    public void setScore(int score) { this.score = score; }
+    public void setScore(int score) {
+        if (score < 0 || score > 10) throw new IllegalArgumentException("Score must be between 0 and 10.");
+        this.score = score;
+    }
 }

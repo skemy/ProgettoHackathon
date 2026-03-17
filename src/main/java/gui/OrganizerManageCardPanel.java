@@ -14,26 +14,35 @@ import javax.swing.text.StyleContext;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Pannello per l'Organizzatore: gestisce la promozione degli utenti nel "Limbo" a Giudici.
- * Include controlli di sicurezza e feedback visivo.
+ * Pannello per l'Organizzatore: gestisce la promozione degli utenti nel "Limbo" a Giudici (Layer Boundary).
+ * <p>
+ * Nota: Sopprimiamo S1450 perché i campi Label/Panel sono necessari al GUI Designer
+ * di IntelliJ per il corretto binding del file .form.
  */
+@SuppressWarnings("java:S1450")
 public class OrganizerManageCardPanel {
     private JPanel rootPanel;
     private JLabel manageLabel;
     private JLabel infoLabel;
     private JLabel participantsLabel;
-    private JLabel participantsInfoLabel;
+    private JLabel participantsInfoLabel; // Ripristinato per binding .form
     private JScrollPane scrollPanel;
     private JScrollPane participantsListScrollPanel;
-    private JPanel participantsListPanel; // Il contenitore interno delle card
-    private JPanel rParticipantListPanel; // Il RoundedPanel esterno
+    private JPanel participantsListPanel;
+    private JPanel rParticipantListPanel;
 
     private final Controller controller;
 
+    /**
+     * Costruttore del pannello di gestione organizzatore.
+     *
+     * @param controller Il coordinatore del layer Control.
+     */
     public OrganizerManageCardPanel(Controller controller) {
         this.controller = controller;
 
@@ -44,37 +53,47 @@ public class OrganizerManageCardPanel {
 
     /**
      * Recupera gli utenti nel limbo e popola la lista grafica.
+     * Gestisce la 'SQLException' per evitare blocchi dell'interfaccia.
      */
     public void refreshData() {
         participantsListPanel.removeAll();
 
-        // Recupera gli utenti iscritti all'hackathon attuale ma senza team/ruolo
-        List<User> usersInLimbo = controller.getUsersInLimbo();
+        try {
+            List<User> usersInLimbo = controller.getUsersInLimbo();
 
-        if (usersInLimbo == null || usersInLimbo.isEmpty()) {
-            JLabel emptyLabel = new JLabel("No participants waiting for promotion.");
-            emptyLabel.setForeground(Color.GRAY);
-            emptyLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-            participantsListPanel.add(emptyLabel);
-        } else {
-            for (User u : usersInLimbo) {
-                participantsListPanel.add(createUserCard(u));
-                // Spazio tra un utente e l'altro
-                participantsListPanel.add(Box.createVerticalStrut(10));
+            if (usersInLimbo == null || usersInLimbo.isEmpty()) {
+                addEmptyStateLabel();
+            } else {
+                for (User u : usersInLimbo) {
+                    participantsListPanel.add(createUserCard(u));
+                    participantsListPanel.add(Box.createVerticalStrut(10));
+                }
             }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(rootPanel, "Errore caricamento dati: " + e.getMessage(), "Errore Database", JOptionPane.ERROR_MESSAGE);
         }
 
         participantsListPanel.revalidate();
         participantsListPanel.repaint();
     }
 
+    private void addEmptyStateLabel() {
+        JLabel emptyLabel = new JLabel("No participants waiting for promotion.");
+        emptyLabel.setForeground(Color.GRAY);
+        emptyLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        participantsListPanel.add(emptyLabel);
+    }
+
     /**
-     * Crea una card interattiva per l'utente con effetto hover e logica di promozione.
+     * Crea una card interattiva per l'utente con logica di promozione a Giudice.
+     *
+     * @param u L'utente da visualizzare.
+     * @return Il pannello grafico della card.
      */
     private JPanel createUserCard(User u) {
         RoundedPanel card = new RoundedPanel();
         card.setLayout(new BorderLayout());
-        card.setBackground(Color.WHITE); // Colore base: Bianco
+        card.setBackground(Color.WHITE);
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
         card.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -83,61 +102,51 @@ public class OrganizerManageCardPanel {
         nameLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
         card.add(nameLabel, BorderLayout.WEST);
 
-        // --- GESTIONE MOUSE (Hover Rosso e Click Promozione) ---
         card.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                card.setBackground(UIColors.CARMINE_RED); // Diventa Rosso
+                card.setBackground(UIColors.CARMINE_RED);
                 nameLabel.setForeground(Color.WHITE);
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                card.setBackground(Color.WHITE); // Torna Bianco
+                card.setBackground(Color.WHITE);
                 nameLabel.setForeground(Color.BLACK);
             }
 
             @Override
             public void mousePressed(MouseEvent e) {
-                // Finestra di dialogo di conferma
-                int response = JOptionPane.showConfirmDialog(rootPanel,
-                        "Do you want to promote the user '" + u.getName() + "' to Judge?",
-                        "Promote to Judge",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.QUESTION_MESSAGE);
-
-                if (response == JOptionPane.YES_OPTION) {
-                    try {
-                        // Tenta la promozione tramite il Controller
-                        controller.promoteToJudgeAction(u.getUserId());
-
-                        // Successo: Messaggio e refresh della lista
-                        JOptionPane.showMessageDialog(rootPanel,
-                                "User successfully promoted to Judge!",
-                                "Success", JOptionPane.INFORMATION_MESSAGE);
-                        refreshData();
-                    } catch (Exception ex) {
-                        // Gestione Errori (Es: "The user is already a judge" o crash DB)
-                        JOptionPane.showMessageDialog(rootPanel,
-                                ex.getMessage(),
-                                "Action Denied", JOptionPane.WARNING_MESSAGE);
-                    }
-                }
+                handlePromotionRequest(u);
             }
         });
 
         return card;
     }
 
-    /**
-     * Configurazione grafica iniziale.
-     */
+    private void handlePromotionRequest(User u) {
+        int response = JOptionPane.showConfirmDialog(rootPanel,
+                "Promote '" + u.getName() + "' to Judge?", "Confirm",
+                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+
+        if (response == JOptionPane.YES_OPTION) {
+            try {
+                controller.promoteToJudgeAction(u.getUserId());
+                JOptionPane.showMessageDialog(rootPanel, "Promotion successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                refreshData();
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(rootPanel, "DB Error: " + ex.getMessage(), "Action Denied", JOptionPane.ERROR_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Action Denied", JOptionPane.WARNING_MESSAGE);
+            }
+        }
+    }
+
     private void customizeComponents() {
         manageLabel.setForeground(UIColors.NIGHT_BLUE);
         infoLabel.setForeground(UIColors.CARMINE_RED);
         participantsLabel.setForeground(UIColors.CARMINE_RED);
 
-        // Setup del layout per la lista (Verticale)
         participantsListPanel.setLayout(new BoxLayout(participantsListPanel, BoxLayout.Y_AXIS));
         participantsListPanel.setBackground(Color.WHITE);
 
@@ -146,11 +155,7 @@ public class OrganizerManageCardPanel {
         participantsListScrollPanel.setBackground(Color.WHITE);
     }
 
-    /**
-     * Inizializzazione componenti "Custom Create" per il .form
-     */
     private void createUIComponents() {
-        // Obbligatorio per i RoundedPanel segnati come Custom Create nel Designer
         rParticipantListPanel = new RoundedPanel();
     }
 
@@ -245,4 +250,5 @@ public class OrganizerManageCardPanel {
     public JComponent $$$getRootComponent$$$() {
         return rootPanel;
     }
+
 }

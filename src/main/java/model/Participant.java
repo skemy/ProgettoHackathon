@@ -13,7 +13,7 @@ package model;
 public class Participant extends User {
 
     private int teamId;
-    private String role;
+
 
     /**
      * Costruttore vuoto di default.
@@ -36,7 +36,7 @@ public class Participant extends User {
      */
     public Participant(int id, String name, String email, String password, int teamId) {
         super(id, name, email, password);
-        this.teamId = teamId;
+        setTeamId(teamId);
     }
 
     // --- GETTER & SETTER ---
@@ -56,24 +56,11 @@ public class Participant extends User {
      * @param teamId L'identificativo del team da assegnare.
      */
     public void setTeamId(int teamId) {
+        if (teamId <= 0) {
+            throw new IllegalArgumentException("Team ID must be greater than zero.");
+        }
         this.teamId = teamId;
     }
 
-    /**
-     * Recupera il ruolo specifico ricoperto all'interno del team (es. Developer, Designer).
-     *
-     * @return Il ruolo testuale.
-     */
-    public String getRole() {
-        return role;
-    }
 
-    /**
-     * Definisce il ruolo del partecipante all'interno del team.
-     *
-     * @param role La descrizione del ruolo.
-     */
-    public void setRole(String role) {
-        this.role = role;
-    }
 }

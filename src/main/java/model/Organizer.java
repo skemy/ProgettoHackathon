@@ -33,7 +33,7 @@ public class Organizer extends User {
      */
     public Organizer(int userId, String name, String email, String password, int hackathonId) {
         super(userId, name, email, password);
-        this.hackathonId = hackathonId;
+        setHackathonId(hackathonId);
     }
 
     /**
@@ -51,6 +51,9 @@ public class Organizer extends User {
      * @param hackathonId L'ID dell'evento da assegnare.
      */
     public void setHackathonId(int hackathonId) {
+        if (hackathonId <= 0) {
+            throw new IllegalArgumentException("Hackathon ID must be greater than zero.");
+        }
         this.hackathonId = hackathonId;
     }
 }

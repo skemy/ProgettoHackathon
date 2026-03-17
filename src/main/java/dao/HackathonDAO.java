@@ -1,69 +1,46 @@
 package dao;
 
 import model.Hackathon;
+import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Interfaccia DAO per la gestione dell'entità Hackathon.
- * Definisce le operazioni CRUD e le query specifiche necessarie per la gestione degli eventi.
- * <p>
- * Nota Architetturale: Questa interfaccia permette al Controller di interagire con i dati
- * degli Hackathon senza conoscere i dettagli implementativi di PostgreSQL, rispettando
- * il principio di Dependency Inversion.
+ * Interfaccia DAO per la gestione degli eventi Hackathon.
  */
 public interface HackathonDAO {
+    /**
+     * Persiste un nuovo Hackathon.
+     * @throws SQLException In caso di errore nel database.
+     */
+    void createHackathon(Hackathon hackathon) throws SQLException;
 
     /**
-     * Salva un nuovo hackathon nel database.
-     * Utilizzato dal layer Control per formalizzare la creazione di un evento.
-     *
-     * @param hackathon L'oggetto Hackathon da persistere.
+     * Recupera un Hackathon tramite ID.
+     * @throws SQLException In caso di errore nel database.
      */
-    void createHackathon(Hackathon hackathon);
+    Hackathon getHackathonById(int id) throws SQLException;
 
     /**
-     * Recupera un hackathon specifico tramite il suo identificativo univoco.
-     *
-     * @param id L'identificativo univoco dell'hackathon.
-     * @return L'oggetto Hackathon trovato, oppure null se non esiste alcun record.
+     * Recupera la lista globale degli hackathon.
+     * @throws SQLException In caso di errore nel database.
      */
-    Hackathon getHackathonById(int id);
+    List<Hackathon> getAllHackathons() throws SQLException;
 
     /**
-     * Recupera la lista di tutti gli hackathon presenti nel sistema.
-     *
-     * @return Una lista di oggetti Hackathon.
+     * Aggiorna la descrizione del problema.
+     * @throws SQLException In caso di errore nel database.
      */
-    List<Hackathon> getAllHackathons();
+    void updateProblemDescription(int hackathonId, String description) throws SQLException;
 
     /**
-     * Aggiorna la descrizione del problema associata a un hackathon.
-     *
-     * @param hackathonId L'identificativo univoco dell'evento.
-     * @param description Il nuovo testo della traccia o del problema.
+     * Verifica se l'utente è organizzatore e restituisce l'ID dell'hackathon.
+     * @throws SQLException In caso di errore nel database.
      */
-    void updateProblemDescription(int hackathonId, String description);
+    int getHackathonIdWhereUserIsOrganizer(int userId) throws SQLException;
 
     /**
-     * Verifica se un utente specifico riveste il ruolo di organizzatore per un hackathon
-     * e ne restituisce l'identificativo associato.
-     * <p>
-     * Nota Architetturale: Supporta il layer Control nella risoluzione dinamica del ruolo
-     * dell'utente (RBAC) durante l'autenticazione.
-     *
-     * @param userId L'identificativo univoco dell'utente da verificare.
-     * @return L'ID dell'hackathon organizzato dall'utente, o -1 se non ne organizza alcuno.
+     * Recupera l'username dell'organizzatore tramite ID evento.
+     * @throws SQLException In caso di errore nel database.
      */
-    int getHackathonIdWhereUserIsOrganizer(int userId);
-
-    /**
-     * Recupera il nome utente dell'organizzatore associato a uno specifico hackathon.
-     * <p>
-     * Nota Architetturale: Sfrutta le capacità relazionali (JOIN) per restituire
-     * direttamente l'informazione alla Boundary, evitando query multiple.
-     *
-     * @param hackathonId L'identificativo univoco dell'evento.
-     * @return Il nome dell'organizzatore o "Unknown Organizer" come fallback.
-     */
-    String getOrganizerUsernameByHackathonId(int hackathonId);
+    String getOrganizerUsernameByHackathonId(int hackathonId) throws SQLException;
 }

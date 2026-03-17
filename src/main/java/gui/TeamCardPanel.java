@@ -15,20 +15,31 @@ import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Pannello per la gestione del Team (Layer Boundary).
+ * <p>
+ * Nota: Sopprimiamo S1450 perché i campi Label/Panel sono necessari al GUI Designer
+ * di IntelliJ per il corretto binding del file .form, anche se usati solo nel setup.
+ */
+@SuppressWarnings("java:S1450")
 public class TeamCardPanel {
+    private static final String ACCESS_DENIED = "Accesso Negato";
+    private static final String DB_ERROR_TITLE = "Errore Database";
+
     private JPanel rootPanel;
-    private JLabel teamLabel;
+    private JLabel teamLabel; // Ripristinato per binding .form
     private JScrollPane scrollPanel;
     private JLabel infoLabel;
     private JLabel createTeamLabel;
     private JLabel joinTeamLabel;
     private JPanel rJoinTeamPanel;
     private JPanel rCreateTeamPanel;
-    private JLabel membersLabel;
-    private JLabel uploadsLabel;
+    private JLabel membersLabel; // Ripristinato per binding .form
+    private JLabel uploadsLabel; // Ripristinato per binding .form
     private JLabel addLabel;
     private JPanel rAddPanel;
     private JLabel uploadsInfoLabel;
@@ -36,7 +47,7 @@ public class TeamCardPanel {
     private JPanel membersListPanel;
     private JPanel uploadsListPanel;
     private JLabel accessCodeLabel;
-    private JPanel membersInfoJPanel;
+    private JPanel membersInfoJPanel; // Ripristinato per binding .form
 
     private final Controller controller;
 
@@ -50,69 +61,76 @@ public class TeamCardPanel {
         refreshData();
     }
 
+    /**
+     * Sincronizza l'interfaccia con lo stato attuale dell'utente.
+     */
     public void refreshData() {
         User currentUser = controller.getCurrentUser();
 
-        if (currentUser instanceof Participant) {
-            Participant p = (Participant) currentUser;
-            Team myTeam = controller.getMyTeam();
-
-            if (myTeam != null) {
-                infoLabel.setText("Team: " + myTeam.getTeamName());
-                accessCodeLabel.setText("Codice: " + myTeam.getAccessCode());
-                accessCodeLabel.setVisible(true);
+        try {
+            if (currentUser instanceof Participant) {
+                setupUIForTeamMember();
+            } else {
+                setupUIForLimboUser();
             }
-
-            rCreateTeamPanel.setVisible(false);
-            rJoinTeamPanel.setVisible(false);
-            rAddPanel.setVisible(true);
-            membersInfoLabel.setVisible(false);
-            uploadsInfoLabel.setVisible(false);
-
-            updateMembersList();
-            updateUploadsList();
-        } else {
-            infoLabel.setText("Non sei ancora in un team.");
-            accessCodeLabel.setVisible(false);
-            rCreateTeamPanel.setVisible(true);
-            rJoinTeamPanel.setVisible(true);
-            rAddPanel.setVisible(false);
-            membersInfoLabel.setVisible(true);
-            uploadsInfoLabel.setVisible(true);
-
-            membersListPanel.removeAll();
-            uploadsListPanel.removeAll();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(rootPanel, "Errore nel recupero dei dati team: " + e.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
         }
 
         rootPanel.revalidate();
         rootPanel.repaint();
     }
 
+    private void setupUIForTeamMember() throws SQLException {
+        Team myTeam = controller.getMyTeam();
+        if (myTeam != null) {
+            infoLabel.setText("Team: " + myTeam.getTeamName());
+            accessCodeLabel.setText("Codice: " + myTeam.getAccessCode());
+            accessCodeLabel.setVisible(true);
+        }
+
+        toggleControlsVisibility(false);
+        updateMembersList();
+        updateUploadsList();
+    }
+
+    private void setupUIForLimboUser() {
+        infoLabel.setText("Non sei ancora in un team.");
+        accessCodeLabel.setVisible(false);
+        toggleControlsVisibility(true);
+        membersListPanel.removeAll();
+        uploadsListPanel.removeAll();
+    }
+
+    private void toggleControlsVisibility(boolean isLimbo) {
+        rCreateTeamPanel.setVisible(isLimbo);
+        rJoinTeamPanel.setVisible(isLimbo);
+        membersInfoLabel.setVisible(isLimbo);
+        uploadsInfoLabel.setVisible(isLimbo);
+        rAddPanel.setVisible(!isLimbo);
+    }
+
     private void setupAllListeners() {
-        // 1. TASTO CREA TEAM
+        setupCreateTeamListener();
+        setupJoinTeamListener();
+        setupUploadListener();
+        setupCopyCodeListener();
+    }
+
+    private void setupCreateTeamListener() {
         rCreateTeamPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 User u = controller.getCurrentUser();
-
-                if (u instanceof Organizer) {
-                    JOptionPane.showMessageDialog(rootPanel, "Sei un Organizzatore per questo evento. Non puoi creare un team.", "Accesso Negato", JOptionPane.WARNING_MESSAGE);
-                    return;
-                } else if (u instanceof Judge) {
-                    JOptionPane.showMessageDialog(rootPanel, "Sei un Giudice per questo evento. Non puoi creare un team.", "Accesso Negato", JOptionPane.WARNING_MESSAGE);
-                    return;
-                } else if (u instanceof Participant) {
-                    JOptionPane.showMessageDialog(rootPanel, "Fai già parte di un team!", "Azione non consentita", JOptionPane.INFORMATION_MESSAGE);
-                    return;
-                }
+                if (checkRoleForAction(u)) return;
 
                 String name = JOptionPane.showInputDialog(rootPanel, "Nome del Team:", "Nuovo Team", JOptionPane.PLAIN_MESSAGE);
                 if (name != null && !name.trim().isEmpty()) {
                     try {
                         controller.createTeamAction(name.trim());
                         refreshData();
-                    } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Errore", JOptionPane.ERROR_MESSAGE);
+                    } catch (SQLException ex) {
+                        JOptionPane.showMessageDialog(rootPanel, "Errore creazione: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -127,43 +145,47 @@ public class TeamCardPanel {
                 rCreateTeamPanel.setBackground(UIColors.NIGHT_BLUE);
             }
         });
+    }
 
-        // 2. TASTO JOIN TEAM
+    private void setupJoinTeamListener() {
         rJoinTeamPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                User u = controller.getCurrentUser();
-
-                if (u instanceof Organizer) {
-                    JOptionPane.showMessageDialog(rootPanel, "Sei un Organizzatore. Non puoi unirti a un team.", "Accesso Negato", JOptionPane.WARNING_MESSAGE);
-                    return;
-                } else if (u instanceof Judge) {
-                    JOptionPane.showMessageDialog(rootPanel, "Sei un Giudice. Non puoi unirti a un team.", "Accesso Negato", JOptionPane.WARNING_MESSAGE);
-                    return;
-                } else if (u instanceof Participant) {
-                    JOptionPane.showMessageDialog(rootPanel, "Fai già parte di un team!", "Azione non consentita", JOptionPane.INFORMATION_MESSAGE);
-                    return;
-                }
+                if (checkRoleForAction(controller.getCurrentUser())) return;
 
                 String code = JOptionPane.showInputDialog(rootPanel, "Inserisci Codice:", "Join Team", JOptionPane.PLAIN_MESSAGE);
                 if (code != null && !code.trim().isEmpty()) {
                     try {
                         controller.joinTeamAction(code.trim().toUpperCase());
                         refreshData();
-                    } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Errore", JOptionPane.ERROR_MESSAGE);
+                    } catch (SQLException ex) {
+                        JOptionPane.showMessageDialog(rootPanel, "Codice errato o errore server: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
         });
+    }
 
-        // 3. TASTO ADD (UPLOAD)
+    private boolean checkRoleForAction(User u) {
+        if (u instanceof Organizer) {
+            JOptionPane.showMessageDialog(rootPanel, "Sei un Organizzatore. Non puoi gestire team.", ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
+            return true;
+        } else if (u instanceof Judge) {
+            JOptionPane.showMessageDialog(rootPanel, "Sei un Giudice. Non puoi gestire team.", ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
+            return true;
+        } else if (u instanceof Participant) {
+            JOptionPane.showMessageDialog(rootPanel, "Fai già parte di un team!", "Azione non consentita", JOptionPane.INFORMATION_MESSAGE);
+            return true;
+        }
+        return false;
+    }
+
+    private void setupUploadListener() {
         rAddPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 Window parent = SwingUtilities.getWindowAncestor(rootPanel);
-                DocumentUploadDialog dialog = new DocumentUploadDialog((JFrame) parent, controller);
-                dialog.setVisible(true);
+                new DocumentUploadDialog((JFrame) parent, controller).setVisible(true);
                 refreshData();
             }
 
@@ -177,33 +199,96 @@ public class TeamCardPanel {
                 rAddPanel.setBackground(UIColors.NIGHT_BLUE);
             }
         });
+    }
 
-        // 4. LABEL CODICE (COPIA)
+    private void setupCopyCodeListener() {
         accessCodeLabel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                Team myTeam = controller.getMyTeam();
-                if (myTeam != null) {
-                    String code = myTeam.getAccessCode();
-                    StringSelection ss = new StringSelection(code);
-                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(ss, ss);
-
-                    String oldText = accessCodeLabel.getText();
-                    accessCodeLabel.setText("✅ Copiato!");
-                    new Timer(1000, ev -> accessCodeLabel.setText(oldText)).start();
+                try {
+                    Team myTeam = controller.getMyTeam();
+                    if (myTeam != null) {
+                        String code = myTeam.getAccessCode();
+                        StringSelection ss = new StringSelection(code);
+                        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(ss, ss);
+                        String oldText = accessCodeLabel.getText();
+                        accessCodeLabel.setText("Copiato!");
+                        new Timer(1000, ev -> accessCodeLabel.setText(oldText)).start();
+                    }
+                } catch (SQLException ex) {
+                    // Fallback silenzioso
                 }
             }
         });
     }
 
+    private void updateMembersList() throws SQLException {
+        membersListPanel.removeAll();
+        List<Participant> members = controller.getMyTeamMembers();
+        for (Participant m : members) {
+            JPanel card = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            card.setBackground(Color.WHITE);
+            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+            card.add(new JLabel("Utente: " + m.getName() + " (" + m.getEmail() + ")"));
+            membersListPanel.add(card);
+        }
+    }
+
+    private void updateUploadsList() throws SQLException {
+        uploadsListPanel.removeAll();
+        List<Document> docs = controller.getMyTeamDocuments();
+
+        for (Document d : docs) {
+            RoundedPanel card = new RoundedPanel();
+            card.setLayout(new BorderLayout());
+            card.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+            card.setBackground(Color.WHITE);
+            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+            card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+            card.add(new JLabel("Progetto: " + d.getName()), BorderLayout.CENTER);
+            card.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    showFeedbackHistory(d);
+                }
+            });
+            uploadsListPanel.add(card);
+            uploadsListPanel.add(Box.createVerticalStrut(5));
+        }
+    }
+
+    private void showFeedbackHistory(Document d) {
+        try {
+            List<Feedback> feedbacks = controller.getDocumentFeedbacks(d.getDocumentId());
+            StringBuilder html = new StringBuilder("<html><body style='font-family: sans-serif; padding: 10px; width: 350px;'>");
+            html.append("<h2 style='color: #D32F2F;'>Feedback Giudici:</h2>");
+
+            if (feedbacks.isEmpty()) {
+                html.append("<p>Nessun commento disponibile.</p>");
+            } else {
+                for (Feedback f : feedbacks) {
+                    html.append("<h4 style='color: #1A237E;'>Giudice: ").append(f.getJudgeName()).append("</h4>");
+                    html.append("<p><i>").append(f.getComment().replace("\n", "<br>")).append("</i></p><hr>");
+                }
+            }
+            html.append("</body></html>");
+
+            JEditorPane pane = new JEditorPane("text/html", html.toString());
+            pane.setEditable(false);
+            pane.setOpaque(false);
+            JOptionPane.showMessageDialog(rootPanel, new JScrollPane(pane), "Storico Feedback", JOptionPane.PLAIN_MESSAGE);
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(rootPanel, "Errore nel caricamento feedback.", DB_ERROR_TITLE, JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
     private void customizeComponents() {
         rCreateTeamPanel.setBackground(UIColors.NIGHT_BLUE);
         createTeamLabel.setForeground(Color.WHITE);
-
         rJoinTeamPanel.setBackground(Color.WHITE);
         ((RoundedPanel) rJoinTeamPanel).setBorderColor(UIColors.NIGHT_BLUE);
         joinTeamLabel.setForeground(UIColors.NIGHT_BLUE);
-
         rAddPanel.setBackground(UIColors.NIGHT_BLUE);
         addLabel.setForeground(Color.WHITE);
 
@@ -223,99 +308,6 @@ public class TeamCardPanel {
         scrollPanel.setBorder(null);
         membersListPanel.setLayout(new BoxLayout(membersListPanel, BoxLayout.Y_AXIS));
         uploadsListPanel.setLayout(new BoxLayout(uploadsListPanel, BoxLayout.Y_AXIS));
-    }
-
-    private void updateMembersList() {
-        membersListPanel.removeAll();
-        List<Participant> members = controller.getMyTeamMembers();
-        for (Participant m : members) {
-            JPanel card = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            card.setBackground(Color.WHITE);
-            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
-            card.add(new JLabel("👤 " + m.getName() + " (" + m.getEmail() + ")"));
-            membersListPanel.add(card);
-        }
-        membersListPanel.revalidate();
-        membersListPanel.repaint();
-    }
-
-    private void updateUploadsList() {
-        uploadsListPanel.removeAll();
-        List<Document> docs = controller.getMyTeamDocuments();
-
-        for (Document d : docs) {
-            RoundedPanel card = new RoundedPanel();
-            card.setLayout(new BorderLayout());
-            card.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-            card.setBackground(Color.WHITE);
-            card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-            card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
-            JLabel docName = new JLabel("📄 " + d.getName());
-            card.add(docName, BorderLayout.CENTER);
-
-            /**
-             * Apre una finestra modale (JOptionPane) per visualizzare lo storico dei feedback.
-             * * NOTA ARCHITETTURALE SULLA GUI (Rendering HTML in Swing):
-             * Al fine di garantire una User Experience (UX) moderna e gerarchica, questa sezione
-             * non utilizza una classica JTextArea (limitata al Plain Text), ma un JEditorPane
-             * configurato con content-type "text/html".
-             * * - PERCHÉ: Permette l'utilizzo di stili CSS inline per differenziare cromaticamente
-             * i titoli (es. rosso scuro per l'intestazione), i sottotitoli (es. blu per il nome
-             * del giudice) e introdurre veri divisori grafici (<hr>) impossibili col testo semplice.
-             * - COME: I dati estratti dal DB (tramite il Controller) vengono iterati e concatenati
-             * in uno StringBuilder avvolti da tag HTML. Attenzione: i ritorni a capo testuali (\n)
-             * generati dagli utenti vengono convertiti dinamicamente in tag <br> per preservare
-             * la formattazione originale del commento a schermo.
-             */
-            card.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mousePressed(MouseEvent e) {
-                    List<Feedback> feedbacks = controller.getDocumentFeedbacks(d.getDocumentId());
-
-                    // Costruiamo una stringa HTML invece di testo semplice
-                    StringBuilder html = new StringBuilder();
-                    html.append("<html><body style='font-family: sans-serif; padding: 10px; width: 350px;'>");
-
-                    // 1. Titolo in Rosso e più grande
-                    html.append("<h2 style='color: #D32F2F; margin-top: 0;'>Comments from Judges:</h2>");
-
-                    if (feedbacks.isEmpty()) {
-                        html.append("<p style='color: gray; font-style: italic;'>No comments yet.</p>");
-                    } else {
-                        for (Feedback f : feedbacks) {
-                            html.append("<div style='margin-bottom: 10px;'>");
-                            // 2. Sottotitolo del Giudice in Blu Notte
-                            html.append("<h4 style='color: #1A237E; margin: 0 0 5px 0;'>👨‍⚖️ Judge: ").append(f.getJudgeName()).append("</h4>");
-
-                            // 3. Sezione Commento (Convertiamo gli a capo \n in <br> per l'HTML)
-                            String safeComment = f.getComment().replace("\n", "<br>");
-                            html.append("<p style='margin: 0; font-size: 13px;'><b>Comment:</b> <br><i>").append(safeComment).append("</i></p>");
-                            html.append("</div>");
-
-                            // 4. Linea di separazione estesa e sottile (<hr>)
-                            html.append("<hr style='border: 0; border-top: 1px solid #BDBDBD; margin-bottom: 15px;'>");
-                        }
-                    }
-                    html.append("</body></html>");
-
-                    // Usiamo JEditorPane invece di JTextArea per leggere l'HTML
-                    JEditorPane editorPane = new JEditorPane("text/html", html.toString());
-                    editorPane.setEditable(false);
-                    editorPane.setOpaque(false); // Sfondo trasparente per integrarsi col PopUp
-
-                    JScrollPane scrollPane = new JScrollPane(editorPane);
-                    scrollPane.setPreferredSize(new Dimension(450, 300)); // Finestra più larga
-                    scrollPane.setBorder(BorderFactory.createEmptyBorder()); // Togliamo i bordi brutti
-
-                    JOptionPane.showMessageDialog(rootPanel, scrollPane, "Feedback History", JOptionPane.PLAIN_MESSAGE);
-                }
-            });
-            uploadsListPanel.add(card);
-            uploadsListPanel.add(Box.createVerticalStrut(5));
-        }
-        uploadsListPanel.revalidate();
-        uploadsListPanel.repaint();
     }
 
     public JPanel getRootPanel() {
@@ -481,4 +473,5 @@ public class TeamCardPanel {
     public JComponent $$$getRootComponent$$$() {
         return rootPanel;
     }
+
 }
