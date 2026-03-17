@@ -176,7 +176,7 @@ public class DashboardCardPanel {
 
         if (choice == JOptionPane.YES_OPTION) {
             try {
-                controller.joinHackathon(h.getHackathonId());
+                controller.joinHackathonAction(h.getHackathonId());
                 JOptionPane.showMessageDialog(rootPanel, "Registration completed!");
                 refreshData();
             } catch (SQLException ex) {
@@ -207,14 +207,50 @@ public class DashboardCardPanel {
         JTextField startF = new JTextField(LocalDate.now().plusDays(7).toString());
         JTextField endF = new JTextField(LocalDate.now().plusDays(8).toString());
 
-        Object[] message = {"Title:", titleF, "Location:", locF, "Start (YYYY-MM-DD):", startF, "End (YYYY-MM-DD):", endF};
+        // 1. Aggiungiamo i due nuovi campi di input, con dei valori di default suggeriti
+        JTextField maxParticipantsF = new JTextField("100");
+        JTextField maxTeamSizeF = new JTextField("5");
+
+        // 2. Aggiungiamo i campi all'array dei messaggi del JOptionPane
+        Object[] message = {
+                "Title:", titleF,
+                "Location:", locF,
+                "Start (YYYY-MM-DD):", startF,
+                "End (YYYY-MM-DD):", endF,
+                "Max Participants:", maxParticipantsF,
+                "Max Team Size:", maxTeamSizeF
+        };
 
         int option = JOptionPane.showConfirmDialog(rootPanel, message, "New Hackathon", JOptionPane.OK_CANCEL_OPTION);
+
         if (option == JOptionPane.OK_OPTION) {
             try {
-                controller.createHackathon(titleF.getText(), locF.getText(), LocalDate.parse(startF.getText()), LocalDate.parse(endF.getText()), 100, 5);
+                // 3. Estraiamo i numeri digitati dall'utente e li convertiamo in interi
+                int maxP = Integer.parseInt(maxParticipantsF.getText().trim());
+                int maxT = Integer.parseInt(maxTeamSizeF.getText().trim());
+
+                // Opzionale: un controllo rapido lato GUI per evitare chiamate inutili al Controller
+                if (maxP <= 0 || maxT <= 0) {
+                    JOptionPane.showMessageDialog(rootPanel, "I limiti devono essere maggiori di zero.", ERROR_TITLE, JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                // 4. Passiamo i valori dinamici (maxP, maxT) al Controller invece dei numeri magici!
+                controller.createHackathonAction(
+                        titleF.getText(),
+                        locF.getText(),
+                        LocalDate.parse(startF.getText()),
+                        LocalDate.parse(endF.getText()),
+                        maxP,
+                        maxT
+                );
+
                 JOptionPane.showMessageDialog(rootPanel, "Hackathon created successfully!");
                 refreshData();
+
+            } catch (NumberFormatException ex) {
+                // 5. Gestiamo il caso in cui l'utente scriva "Cento" al posto di "100"
+                JOptionPane.showMessageDialog(rootPanel, "Max Participants e Max Team Size devono essere numeri validi.", ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
             } catch (DateTimeParseException ex) {
                 JOptionPane.showMessageDialog(rootPanel, "Invalid date format.", ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
             } catch (SQLException ex) {

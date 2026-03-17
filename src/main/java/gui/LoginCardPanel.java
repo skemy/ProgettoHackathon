@@ -112,7 +112,7 @@ public class LoginCardPanel {
 
         try {
             // Chiamata al layer Control
-            controller.loginUser(username, password);
+            controller.loginUserAction(username, password);
             callMainFrame();
         } catch (BlankFieldException | UserNotFoundException ex) {
             // Errori di business logic (es. campi vuoti o utente errato)

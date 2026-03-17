@@ -65,7 +65,9 @@ public class UserDAOImpl implements UserDAO {
                     } else if (isJudge(conn, id)) {
                         return new Judge(id, name, email, password, getHackathonIdForRole(conn, "jury", id));
                     } else if (isParticipant(conn, id)) {
-                        return new Participant(id, name, email, password, getTeamIdForParticipant(conn, id));
+                        int tId = getTeamIdForParticipant(conn, id);
+                        int hId = getHackathonIdForRole(conn, "team", tId);
+                        return new Participant(id, name, email, password, tId, hId);
                     }
                     return new User(id, name, email, password);
                 }

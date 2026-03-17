@@ -45,6 +45,16 @@ public class Organizer extends User {
         return hackathonId;
     }
 
+    @Override
+    public int getAssociatedHackathonId() {
+        return this.hackathonId;
+    }
+
+    @Override
+    public String getTeamActionDenialReason() {
+        return "You are an Organizer. You cannot create or join a team.";
+    }
+
     /**
      * Associa l'organizzatore a un hackathon specifico.
      *

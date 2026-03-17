@@ -100,6 +100,15 @@ public class User {
         this.password = password;
     }
 
+    public int getAssociatedHackathonId() { return 0;};
+
+    /**
+     * Determina se l'utente ha i permessi per creare o unirsi a un team.
+     * @return Il motivo del rifiuto, oppure null se l'azione è consentita.
+     */
+    public String getTeamActionDenialReason() {
+        return null;
+    }
     /**
      * Fornisce una rappresentazione testuale dell'oggetto.
      * Utilizzata esclusivamente per attività di logging tecnico o debugging del layer Control.
@@ -109,4 +118,6 @@ public class User {
     public String toString() {
         return "User [id=" + userId + ", name=" + name + ", email=" + email + "]";
     }
+
+
 }

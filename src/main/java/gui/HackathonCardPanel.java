@@ -77,7 +77,7 @@ public class HackathonCardPanel {
     private JPanel rMaxTeamSizeContentPanel;
     private JLabel maxParticipantsContentLabel;
     private JLabel maxTeamSizeContentLabel;
-    private static final String SAMPLE_TEXT = "sample_text";
+    private static final String PLACEHOLDER = "sample_text";
 
     private final Controller controller;
     private boolean isEditingMode = false;
@@ -207,7 +207,7 @@ public class HackathonCardPanel {
             // Tenta di salvare le modifiche
             if (JOptionPane.showConfirmDialog(rootPanel, "Save new Problem Statement?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                 try {
-                    if (controller.updateHackathonProblem(problemStatementTextArea.getText())) {
+                    if (controller.updateHackathonProblemAction(problemStatementTextArea.getText())) {
                         disableEditingUI();
                         problemStatementTextArea.setOpaque(false);
                         JOptionPane.showMessageDialog(rootPanel, "Statement updated successfully!");

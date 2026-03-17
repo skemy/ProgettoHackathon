@@ -47,6 +47,14 @@ public class Judge extends User {
         return hackathonId;
     }
 
+    @Override
+    public int getAssociatedHackathonId() {
+        return this.hackathonId;
+    }
+    @Override
+    public String getTeamActionDenialReason() {
+        return "You are a Judge. Your role is to evaluate, not participate.";
+    }
     /**
      * Assegna il giudice a un hackathon specifico.
      *

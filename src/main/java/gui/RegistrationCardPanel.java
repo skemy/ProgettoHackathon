@@ -147,7 +147,7 @@ public class RegistrationCardPanel {
 
         try {
             checkPasswords(password, confirmPassword);
-            controller.registerUser(username, email, password);
+            controller.registerUserAction(username, email, password);
 
             JOptionPane.showMessageDialog(
                     null,

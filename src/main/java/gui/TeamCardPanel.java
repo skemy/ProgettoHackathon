@@ -121,17 +121,21 @@ public class TeamCardPanel {
         rCreateTeamPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                User u = controller.getCurrentUser();
-                if (checkRoleForAction(u)) return;
+                try {
+                    // 1. Chiediamo al Controller se possiamo procedere
+                    controller.validateTeamManagementAccess();
 
-                String name = JOptionPane.showInputDialog(rootPanel, "Nome del Team:", "Nuovo Team", JOptionPane.PLAIN_MESSAGE);
-                if (name != null && !name.trim().isEmpty()) {
-                    try {
+                    // 2. Se non lancia eccezioni, procediamo con la GUI
+                    String name = JOptionPane.showInputDialog(rootPanel, "Team Name", "New Team", JOptionPane.PLAIN_MESSAGE);
+                    if (name != null && !name.trim().isEmpty()) {
                         controller.createTeamAction(name.trim());
                         refreshData();
-                    } catch (SQLException ex) {
-                        JOptionPane.showMessageDialog(rootPanel, "Errore creazione: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                     }
+                } catch (IllegalStateException ex) {
+                    // 3. Catturiamo il divieto polimorfico e lo mostriamo!
+                    JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(rootPanel, "Creation error: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                 }
             }
 
@@ -151,33 +155,21 @@ public class TeamCardPanel {
         rJoinTeamPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                if (checkRoleForAction(controller.getCurrentUser())) return;
+                try {
+                    controller.validateTeamManagementAccess();
 
-                String code = JOptionPane.showInputDialog(rootPanel, "Inserisci Codice:", "Join Team", JOptionPane.PLAIN_MESSAGE);
-                if (code != null && !code.trim().isEmpty()) {
-                    try {
+                    String code = JOptionPane.showInputDialog(rootPanel, "Insert Code:", "Join Team", JOptionPane.PLAIN_MESSAGE);
+                    if (code != null && !code.trim().isEmpty()) {
                         controller.joinTeamAction(code.trim().toUpperCase());
                         refreshData();
-                    } catch (SQLException ex) {
-                        JOptionPane.showMessageDialog(rootPanel, "Codice errato o errore server: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                     }
+                } catch (IllegalStateException ex) {
+                    JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(rootPanel, "Incorrect code or server error: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
-    }
-
-    private boolean checkRoleForAction(User u) {
-        if (u instanceof Organizer) {
-            JOptionPane.showMessageDialog(rootPanel, "Sei un Organizzatore. Non puoi gestire team.", ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
-            return true;
-        } else if (u instanceof Judge) {
-            JOptionPane.showMessageDialog(rootPanel, "Sei un Giudice. Non puoi gestire team.", ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
-            return true;
-        } else if (u instanceof Participant) {
-            JOptionPane.showMessageDialog(rootPanel, "Fai già parte di un team!", "Azione non consentita", JOptionPane.INFORMATION_MESSAGE);
-            return true;
-        }
-        return false;
     }
 
     private void setupUploadListener() {
@@ -216,7 +208,6 @@ public class TeamCardPanel {
                         new Timer(1000, ev -> accessCodeLabel.setText(oldText)).start();
                     }
                 } catch (SQLException ex) {
-                    // Fallback silenzioso
                 }
             }
         });

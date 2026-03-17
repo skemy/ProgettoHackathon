@@ -13,15 +13,17 @@ package model;
 public class Participant extends User {
 
     private int teamId;
-
+    private int hackathonId;
 
     /**
      * Costruttore vuoto di default.
      * Necessario per garantire la compatibilità con i framework di persistenza
      * e per l'istanziazione dinamica nel layer DAO.
      */
-    public Participant() {
-        super();
+    public Participant(int id, String name, String email, String password, int teamId, int hId) {
+        super(id, name, email, password);
+        setTeamId(teamId);
+        this.hackathonId = hId;
     }
 
     /**
@@ -48,6 +50,16 @@ public class Participant extends User {
      */
     public int getTeamId() {
         return teamId;
+    }
+
+    @Override
+    public int getAssociatedHackathonId() {
+        return this.hackathonId;
+    }
+
+    @Override
+    public String getTeamActionDenialReason() {
+        return "You're already part of a team! You can't join other groups.";
     }
 
     /**
