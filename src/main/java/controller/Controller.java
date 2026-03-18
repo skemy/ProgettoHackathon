@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
+// Ciao carmine 
+
 /**
  * Orchestratore centrale del sistema (Layer Control nel pattern BCE - Boundary Control Entity).
  * Coordina il flusso di dati tra la Boundary (GUI) e l'Entity Access (DAO), incapsulando
