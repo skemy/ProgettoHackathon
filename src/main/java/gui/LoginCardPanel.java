@@ -119,7 +119,7 @@ public class LoginCardPanel {
             showErrorDialog(ex.getMessage());
         } catch (SQLException ex) {
             // FIX: Gestione dell'eccezione SQL propagata dai DAO
-            showErrorDialog("Connection lost: Unable to reach the database.");
+            showErrorDialog("Errore SQL Reale: " + ex.getMessage());
         }
     }
 

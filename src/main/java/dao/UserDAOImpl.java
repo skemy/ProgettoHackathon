@@ -59,14 +59,13 @@ public class UserDAOImpl implements UserDAO {
                     String name = rs.getString(NAME_COL);
                     String email = rs.getString(EMAIL_COL);
 
-                    // Risoluzione polimorfica dell'utente in base alla tabella di appartenenza
                     if (isOrganizer(conn, id)) {
                         return new Organizer(id, name, email, password, getHackathonIdForRole(conn, "organizer", id));
                     } else if (isJudge(conn, id)) {
                         return new Judge(id, name, email, password, getHackathonIdForRole(conn, "jury", id));
                     } else if (isParticipant(conn, id)) {
                         int tId = getTeamIdForParticipant(conn, id);
-                        int hId = getHackathonIdForRole(conn, "team", tId);
+                        int hId = getHackathonIdForTeam(conn, tId);
                         return new Participant(id, name, email, password, tId, hId);
                     }
                     return new User(id, name, email, password);
@@ -258,4 +257,18 @@ public class UserDAOImpl implements UserDAO {
             try (ResultSet rs = ps.executeQuery()) { return rs.next() ? rs.getInt(1) : 0; }
         }
     }
+
+    /**
+     * Recupera l'ID hackathon associato a un determinato team.
+     */
+    private int getHackathonIdForTeam(Connection conn, int teamId) throws SQLException {
+        String query = "SELECT hackathonId FROM team WHERE teamId = ?";
+        try (PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, teamId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
 }

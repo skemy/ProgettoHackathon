@@ -1,6 +1,8 @@
 package dao;
 
 import model.*;
+
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -116,4 +118,5 @@ public interface UserDAO {
 	 * @throws SQLException In caso di errore SQL.
 	 */
 	void cleanupLimboRegistrations(int hackathonId) throws SQLException;
+
 }

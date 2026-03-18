@@ -146,7 +146,7 @@ public class Controller {
         int orgHid = hackathonDAO.getHackathonIdWhereUserIsOrganizer(uid);
         if (orgHid > 0) return new Organizer(uid, u.getName(), u.getEmail(), u.getPassword(), orgHid);
 
-        return u; // Fallback se è un semplice utente non ancora associato a nulla
+        return u;
     }
 
     /**
