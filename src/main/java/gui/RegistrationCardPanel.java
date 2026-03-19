@@ -22,10 +22,34 @@ import java.util.Locale;
 
 /**
  * Pannello grafico per la registrazione di nuovi utenti (Layer Boundary).
- * Gestisce l'acquisizione dei dati anagrafici e la validazione delle credenziali.
  * <p>
- * Nota Architetturale: 100% SonarQube Compliant. Integra la gestione delle
- * eccezioni SQL per garantire la resilienza dell'interfaccia in caso di errori DB.
+ * Gestisce l'acquisizione dei dati anagrafici (username, email, password) e la loro validazione
+ * lato GUI prima dell'invio al Controller per la persistenza nel database. Fornisce feedback
+ * visivo all'utente in caso di errori di validazione o di connessione al database.
+ * </p>
+ * <p>
+ * Funzionalità principali:
+ * <ul>
+ *   <li>Acquisizione di username, email e password con conferma.</li>
+ *   <li>Validazione lato GUI (controllo corrispondenza password).</li>
+ *   <li>Gestione di eccezioni di business (username/email già registrati, campi vuoti).</li>
+ *   <li>Gestione resiliente di errori SQL (disconnessione, timeout).</li>
+ *   <li>Effetti interattivi (hover) sui pulsanti "Back" e "Confirm".</li>
+ *   <li>Visualizzazione di messaggi di errore e successo tramite dialoghi.</li>
+ *   <li>Navigazione verso il pannello Login al completamento o al clic "Back".</li>
+ * </ul>
+ * </p>
+ * <p>
+ * Nota Architetturale: 100% SonarQube Compliant. Integra la gestione delle eccezioni SQL
+ * propagate dal Controller per garantire la resilienza dell'interfaccia in caso di errori DB.
+ * </p>
+ *
+ * @see Controller
+ * @see LoginCardPanel
+ * @see PasswordsDoNotMatchException
+ * @see BlankFieldException
+ * @see UsernameAlreadyTakenException
+ * @see EmailAlreadyTakenException
  */
 public class RegistrationCardPanel {
     private JPanel rootPanel;
@@ -49,9 +73,15 @@ public class RegistrationCardPanel {
 
     /**
      * Costruttore del pannello di registrazione.
+     * <p>
+     * Inizializza il pannello con il cardPanel per la navigazione e il controller per la logica di business.
+     * Configura i componenti UI tramite il GUI Designer e personalizza gli stili secondo la palette UIColors.
+     * </p>
      *
      * @param cardPanel  Il pannello radice che gestisce lo scambio dei componenti via CardLayout.
-     * @param controller Il coordinatore della logica di business (BCE pattern).
+     *                   Utilizzato per navigare tra i diversi pannelli (Login e Registration).
+     * @param controller Il coordinatore della logica di business (pattern BCE). Gestisce la registrazione
+     *                   e la validazione lato database.
      */
     public RegistrationCardPanel(JPanel cardPanel, Controller controller) {
         this.cardPanel = cardPanel;
@@ -62,6 +92,16 @@ public class RegistrationCardPanel {
 
     /**
      * Applica le personalizzazioni cromatiche e stilistiche ai componenti UI.
+     * <p>
+     * Configura:
+     * <ul>
+     *   <li>Colore del titolo (NIGHT_BLUE).</li>
+     *   <li>Colore delle etichette dei campi (grigio).</li>
+     *   <li>Visibilità e colore dell'etichetta di errore (rosso, nascosta di default).</li>
+     *   <li>Stile del pulsante "Back" (bordo NIGHT_BLUE).</li>
+     *   <li>Stile del pulsante "Confirm" (sfondo NIGHT_BLUE).</li>
+     * </ul>
+     * </p>
      */
     private void customizeComponents() {
         registerYourAccountLabel.setForeground(UIColors.NIGHT_BLUE);
@@ -82,7 +122,11 @@ public class RegistrationCardPanel {
     }
 
     /**
-     * Inizializza i componenti grafici custom e i relativi listener di interazione.
+     * Inizializza i componenti grafici custom (RoundedPanel) e i relativi listener di interazione.
+     * <p>
+     * Crea i pannelli arrotondati per i pulsanti "Back" e "Confirm" e configura
+     * i relativi listener di mouse per gestire le azioni dell'utente.
+     * </p>
      */
     private void createUIComponents() {
         rBackPanel = new RoundedPanel();
@@ -92,6 +136,17 @@ public class RegistrationCardPanel {
         setupRConfirmPanelListener();
     }
 
+    /**
+     * Configura il listener di mouse per il pulsante "Back".
+     * <p>
+     * Gestisce:
+     * <ul>
+     *   <li><b>Mouse Pressed:</b> Naviga verso il pannello Login tramite CardLayout.</li>
+     *   <li><b>Mouse Entered:</b> Cambia il colore del bordo e del testo a CARMINE_RED (hover effect).</li>
+     *   <li><b>Mouse Exited:</b> Ripristina i colori originali (NIGHT_BLUE).</li>
+     * </ul>
+     * </p>
+     */
     private void setupRBackPanelListener() {
         rBackPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         rBackPanel.addMouseListener(new MouseAdapter() {
@@ -115,6 +170,17 @@ public class RegistrationCardPanel {
         });
     }
 
+    /**
+     * Configura il listener di mouse per il pulsante "Confirm".
+     * <p>
+     * Gestisce:
+     * <ul>
+     *   <li><b>Mouse Pressed:</b> Avvia la procedura di registrazione tramite handleRegistration().</li>
+     *   <li><b>Mouse Entered:</b> Cambia il colore di sfondo a CARMINE_RED (hover effect).</li>
+     *   <li><b>Mouse Exited:</b> Ripristina il colore di sfondo a NIGHT_BLUE.</li>
+     * </ul>
+     * </p>
+     */
     private void setupRConfirmPanelListener() {
         rConfirmPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         rConfirmPanel.addMouseListener(new MouseAdapter() {
@@ -136,8 +202,26 @@ public class RegistrationCardPanel {
     }
 
     /**
-     * Gestisce il flusso di registrazione invocando il controller.
-     * Risolve l'errore "Unhandled exception: java.sql.SQLException".
+     * Gestisce il flusso completo di registrazione dell'utente.
+     * <p>
+     * Esegue le seguenti operazioni:
+     * <ol>
+     *   <li>Recupera i dati dai campi di input (username, email, password, confirmPassword).</li>
+     *   <li>Valida la corrispondenza delle password tramite checkPasswords().</li>
+     *   <li>Invoca il Controller per la registrazione nel database.</li>
+     *   <li>Mostra un dialogo di successo e naviga verso il pannello Login.</li>
+     * </ol>
+     * </p>
+     * <p>
+     * Gestisce le seguenti eccezioni:
+     * <ul>
+     *   <li>{@link PasswordsDoNotMatchException} - Mostra etichetta di errore rossa.</li>
+     *   <li>{@link BlankFieldException} - Mostra dialogo di errore con il messaggio specifico.</li>
+     *   <li>{@link UsernameAlreadyTakenException} - Mostra dialogo di errore (username già registrato).</li>
+     *   <li>{@link EmailAlreadyTakenException} - Mostra dialogo di errore (email già registrata).</li>
+     *   <li>{@link SQLException} - Mostra dialogo di errore di connessione al database.</li>
+     * </ul>
+     * </p>
      */
     private void handleRegistration() {
         String username = usernameField.getText();
@@ -170,6 +254,13 @@ public class RegistrationCardPanel {
         }
     }
 
+    /**
+     * Svuota i campi di input della registrazione.
+     * <p>
+     * Ripristina tutti i campi (username, email, password, confirmPassword) a stringhe vuote.
+     * Utilizzato dopo una registrazione riuscita prima di navigare verso Login.
+     * </p>
+     */
     private void clearFormFields() {
         usernameField.setText("");
         emailField.setText("");
@@ -177,6 +268,17 @@ public class RegistrationCardPanel {
         confirmPasswordField.setText("");
     }
 
+    /**
+     * Valida la corrispondenza tra password e conferma password.
+     * <p>
+     * Se le password non corrispondono, lancia PasswordsDoNotMatchException.
+     * Se le password corrispondono, nasconde l'etichetta di errore.
+     * </p>
+     *
+     * @param password La password inserita nel campo password.
+     * @param confirmPassword La password inserita nel campo conferma password.
+     * @throws PasswordsDoNotMatchException Se le due password non sono identiche.
+     */
     private void checkPasswords(String password, String confirmPassword) throws PasswordsDoNotMatchException {
         if (!password.equals(confirmPassword)) {
             throw new PasswordsDoNotMatchException();
@@ -185,6 +287,15 @@ public class RegistrationCardPanel {
         }
     }
 
+    /**
+     * Visualizza un dialogo di errore modale con il messaggio fornito.
+     * <p>
+     * Il dialogo ha titolo "Registration Error" e icona di errore. Blocca l'interazione
+     * con il resto dell'interfaccia finché l'utente non chiude il dialogo.
+     * </p>
+     *
+     * @param message Il messaggio di errore da visualizzare all'utente.
+     */
     private void showErrorDialog(String message) {
         JOptionPane.showMessageDialog(
                 null,
@@ -194,6 +305,15 @@ public class RegistrationCardPanel {
         );
     }
 
+    /**
+     * Restituisce il pannello radice della classe.
+     * <p>
+     * Questo pannello contiene tutti i componenti UI del modulo di registrazione
+     * ed è inserito nel CardLayout principale tramite la chiave "registration".
+     * </p>
+     *
+     * @return Il JPanel principale contenente tutta la UI del pannello di registrazione.
+     */
     public JPanel getRootPanel() {
         return rootPanel;
     }
@@ -316,3 +436,4 @@ public class RegistrationCardPanel {
     }
 
 }
+

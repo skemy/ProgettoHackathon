@@ -28,6 +28,11 @@ public class UserDAOImpl implements UserDAO {
     private static final String PASSWORD_COL = "password";
     private static final String H_ID_COL = "hackathonId";
 
+    /**
+     * Registra un nuovo utente nel database.
+     * @param user L'oggetto User da registrare.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void registerUser(User user) throws SQLException {
         String query = "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
@@ -41,6 +46,13 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Verifica le credenziali di login e restituisce l'utente corrispondente con il ruolo risolto.
+     * @param loginInput L'email o il nome utente.
+     * @param password La password.
+     * @return L'oggetto User con ruolo, o null se le credenziali sono errate.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public User checkLogin(String loginInput, String password) throws SQLException {
         // Query esplicita senza l'uso di SELECT *
@@ -75,6 +87,12 @@ public class UserDAOImpl implements UserDAO {
         return null;
     }
 
+    /**
+     * Recupera l'ID dell'hackathon dove l'utente è giudice.
+     * @param userId L'ID dell'utente.
+     * @return L'ID dell'hackathon, o -1 se non trovato.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public int getHackathonIdWhereUserIsJudge(int userId) throws SQLException {
         String query = "SELECT hackathonId FROM jury WHERE userId = ?";
@@ -88,6 +106,13 @@ public class UserDAOImpl implements UserDAO {
         return -1;
     }
 
+    /**
+     * Promuove un utente a giudice per un hackathon specifico.
+     * @param userId L'ID dell'utente.
+     * @param hackathonId L'ID dell'hackathon.
+     * @return true se la promozione è riuscita.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public boolean promoteToJudge(int userId, int hackathonId) throws SQLException {
         String query = "INSERT INTO jury (userId, hackathonId) VALUES (?, ?)";
@@ -102,6 +127,11 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Pulisce le registrazioni in limbo per un hackathon specifico.
+     * @param hackathonId L'ID dell'hackathon.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void cleanupLimboRegistrations(int hackathonId) throws SQLException {
         String query = "DELETE FROM registration WHERE hackathonId = ?";
@@ -113,6 +143,12 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Registra un utente a un hackathon specifico.
+     * @param userId L'ID dell'utente.
+     * @param hackathonId L'ID dell'hackathon.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void registerUserToHackathon(int userId, int hackathonId) throws SQLException {
         String query = "INSERT INTO registration (userId, hackathonId) VALUES (?, ?)";
@@ -124,6 +160,12 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Recupera l'ID dell'hackathon a cui l'utente è registrato.
+     * @param userId L'ID dell'utente.
+     * @return L'ID dell'hackathon, o -1 se non registrato.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public int getRegisteredHackathonId(int userId) throws SQLException {
         String query = "SELECT hackathonId FROM registration WHERE userId = ?";
@@ -136,6 +178,12 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Rimuove un utente dal limbo per un hackathon specifico.
+     * @param userId L'ID dell'utente.
+     * @param hackathonId L'ID dell'hackathon.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void removeFromLimbo(int userId, int hackathonId) throws SQLException {
         String query = "DELETE FROM registration WHERE userId = ? AND hackathonId = ?";
@@ -147,6 +195,12 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Promuove un utente a organizzatore per un hackathon specifico.
+     * @param userId L'ID dell'utente.
+     * @param hackathonId L'ID dell'hackathon.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void promoteToOrganizer(int userId, int hackathonId) throws SQLException {
         String query = "INSERT INTO organizer (userId, hackathonId) VALUES (?, ?)";
@@ -158,6 +212,12 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Verifica se un'email è già registrata.
+     * @param email L'email da verificare.
+     * @return true se l'email è già registrata, false altrimenti.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public boolean isEmailAlreadyRegistered(String email) throws SQLException {
         String query = "SELECT 1 FROM users WHERE email = ?";
@@ -168,6 +228,12 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Verifica se un nome utente è già registrato.
+     * @param username Il nome utente da verificare.
+     * @return true se il nome utente è già registrato, false altrimenti.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public boolean isUsernameAlreadyRegistered(String username) throws SQLException {
         String query = "SELECT 1 FROM users WHERE name = ?";
@@ -178,6 +244,12 @@ public class UserDAOImpl implements UserDAO {
         }
     }
 
+    /**
+     * Recupera un utente tramite il suo ID.
+     * @param userId L'ID dell'utente.
+     * @return L'oggetto User corrispondente, o null se non trovato.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public User getUserById(int userId) throws SQLException {
         String query = "SELECT userId, name, email, password FROM users WHERE userId = ?";
@@ -194,6 +266,12 @@ public class UserDAOImpl implements UserDAO {
         return null;
     }
 
+    /**
+     * Recupera gli utenti in limbo per un hackathon specifico.
+     * @param hackathonId L'ID dell'hackathon.
+     * @return Una lista di oggetti User in limbo.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public List<User> getUsersInLimboByHackathon(int hackathonId) throws SQLException {
         List<User> list = new ArrayList<>();

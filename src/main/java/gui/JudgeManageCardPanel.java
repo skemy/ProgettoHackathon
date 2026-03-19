@@ -29,6 +29,21 @@ import java.util.logging.Logger;
  * <p>
  * Nota Architetturale: 100% SonarQube Compliant. Utilizza un Logger per la gestione
  * degli errori di fallback e costanti per i nomi dei font.
+ * </p>
+ * <p>
+ * Funzionalità principali:
+ * <ul>
+ *   <li>Visualizzazione della lista di team partecipanti all'hackathon.</li>
+ *   <li>Revisione dei documenti caricati da ogni team con aggiunta di feedback.</li>
+ *   <li>Assegnazione di voti finali (0-10) ai team.</li>
+ *   <li>Gestione della UI interattiva con effetti al passaggio del mouse.</li>
+ * </ul>
+ * </p>
+ *
+ * @see Controller
+ * @see Team
+ * @see Document
+ * @see Participant
  */
 public class JudgeManageCardPanel {
 
@@ -47,6 +62,13 @@ public class JudgeManageCardPanel {
 
     private final Controller controller;
 
+    /**
+     * Costruttore del pannello Giudice.
+     * Inizializza il controller, configura i componenti UI tramite il GUI Designer,
+     * personalizza gli stili e carica la lista iniziale dei team.
+     *
+     * @param controller Istanza del Controller per le operazioni di logica e persistenza.
+     */
     public JudgeManageCardPanel(Controller controller) {
         this.controller = controller;
         $$$setupUI$$$();
@@ -55,7 +77,14 @@ public class JudgeManageCardPanel {
     }
 
     /**
-     * Recupera e visualizza la lista dei team partecipanti.
+     * Recupera e visualizza la lista dei team partecipanti all'hackathon corrente.
+     * <p>
+     * Svuota il pannello, recupera i team dal database tramite il Controller,
+     * crea una card per ciascun team e gestisce il caso di lista vuota.
+     * Se si verifica un errore SQL, visualizza un messaggio di errore all'utente.
+     * </p>
+     *
+     * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
      */
     public void refreshData() {
         teamsListPanel.removeAll();
@@ -76,6 +105,9 @@ public class JudgeManageCardPanel {
         teamsListPanel.repaint();
     }
 
+    /**
+     * Visualizza un'etichetta indicante che nessun team è registrato per l'hackathon.
+     */
     private void addEmptyStateLabel() {
         JLabel empty = new JLabel("No teams registered for this hackathon.");
         empty.setFont(new Font(FONT_FAMILY, Font.ITALIC, 14));
@@ -83,6 +115,17 @@ public class JudgeManageCardPanel {
         teamsListPanel.add(empty);
     }
 
+    /**
+     * Crea graficamente una card per rappresentare un team da valutare.
+     * <p>
+     * La card visualizza il nome del team, il numero di membri e documenti,
+     * con effetti interattivi al passaggio del mouse (cambio colore). Al clic,
+     * apre il dialogo di valutazione del team.
+     * </p>
+     *
+     * @param t L'oggetto Team da visualizzare nella card.
+     * @return Un JPanel configurato con lo stile della card di team.
+     */
     private JPanel createTeamEvaluationCard(Team t) {
         RoundedPanel card = new RoundedPanel();
         card.setLayout(new BorderLayout());
@@ -143,6 +186,19 @@ public class JudgeManageCardPanel {
         return card;
     }
 
+    /**
+     * Aggiorna lo stile grafico della card al passaggio del mouse.
+     * <p>
+     * In modalità attiva (hover): cambia il colore di sfondo a rosso carminio
+     * e il testo a bianco. In modalità inattiva: ripristina i colori originali.
+     * </p>
+     *
+     * @param card Il pannello della card da aggiornare.
+     * @param name L'etichetta del nome del team.
+     * @param details L'etichetta dei dettagli (numero membri e documenti).
+     * @param icon L'etichetta dell'icona d'azione.
+     * @param active true per attivare lo stile hover, false per disattivarlo.
+     */
     private void updateCardStyle(JPanel card, JLabel name, JLabel details, JLabel icon, boolean active) {
         card.setBackground(active ? UIColors.CARMINE_RED : Color.WHITE);
         name.setForeground(active ? Color.WHITE : Color.BLACK);
@@ -150,6 +206,20 @@ public class JudgeManageCardPanel {
         icon.setForeground(active ? Color.WHITE : UIColors.NIGHT_BLUE);
     }
 
+    /**
+     * Apre un dialogo per la valutazione dettagliata di un team.
+     * <p>
+     * Il dialogo mostra:
+     * <ul>
+     *   <li>Il titolo con il nome del team.</li>
+     *   <li>Una lista di pulsanti per visualizzare e commentare ogni documento.</li>
+     *   <li>Un pulsante per assegnare il voto finale.</li>
+     * </ul>
+     * </p>
+     *
+     * @param t L'oggetto Team da valutare.
+     * @param docs La lista dei documenti caricati dal team.
+     */
     private void openTeamDetailsDialog(Team t, List<Document> docs) {
         JPanel container = new JPanel();
         container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
@@ -172,6 +242,16 @@ public class JudgeManageCardPanel {
         dialog.setVisible(true);
     }
 
+    /**
+     * Popola il dialogo di valutazione con i pulsanti per ogni documento.
+     * <p>
+     * Crea un pulsante per ciascun documento che, al clic, consente di visualizzare
+     * e aggiungere feedback. Se nessun documento è caricato, visualizza un messaggio.
+     * </p>
+     *
+     * @param container Il pannello contenitore dove aggiungere i pulsanti.
+     * @param docs La lista dei documenti da visualizzare.
+     */
     private void populateDocumentButtons(JPanel container, List<Document> docs) {
         if (docs.isEmpty()) {
             container.add(new JLabel("No documents uploaded yet."));
@@ -187,6 +267,15 @@ public class JudgeManageCardPanel {
         }
     }
 
+    /**
+     * Gestisce l'azione di aggiunta/modifica del feedback per un documento.
+     * <p>
+     * Recupera il feedback esistente dal database, mostra un dialogo per l'editing,
+     * e salva le modifiche tramite il Controller. Gestisce le eccezioni SQL.
+     * </p>
+     *
+     * @param d L'oggetto Document per il quale aggiungere il feedback.
+     */
     private void handleFeedbackAction(Document d) {
         String existingComment = "";
         try {
@@ -212,6 +301,16 @@ public class JudgeManageCardPanel {
         }
     }
 
+    /**
+     * Crea il pulsante per l'assegnazione del voto finale a un team.
+     * <p>
+     * Al clic, chiude il dialogo di valutazione e avvia la logica di votazione.
+     * Il pulsante è stilizzato con colore rosso carminio.
+     * </p>
+     *
+     * @param t L'oggetto Team a cui assegnare il voto finale.
+     * @return Un JButton configurato per l'assegnazione del voto.
+     */
     private JButton createFinalVoteButton(Team t) {
         JButton voteButton = new JButton("Assign Final Score");
         voteButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 55));
@@ -225,6 +324,15 @@ public class JudgeManageCardPanel {
         return voteButton;
     }
 
+    /**
+     * Avvia la logica di assegnazione del voto finale a un team.
+     * <p>
+     * Verifica che il giudice non abbia già votato il team, quindi mostra
+     * un dialogo di input per il voto (0-10). Gestisce le eccezioni SQL.
+     * </p>
+     *
+     * @param t L'oggetto Team da votare.
+     */
     private void triggerVoteLogic(Team t) {
         try {
             if (controller.hasJudgeAlreadyVoted(t.getTeamId())) {
@@ -240,6 +348,19 @@ public class JudgeManageCardPanel {
         processVoteInput(t, input);
     }
 
+    /**
+     * Elabora l'input del voto inserito dall'utente.
+     * <p>
+     * Valida che l'input sia un numero intero tra 0 e 10, salva il voto
+     * tramite il Controller e aggiorna l'UI. Visualizza messaggi di errore
+     * in caso di input non valido o errori di database.
+     * </p>
+     *
+     * @param t L'oggetto Team a cui assegnare il voto.
+     * @param input La stringa contenente il voto inserito dall'utente.
+     * @throws NumberFormatException Se l'input non è un numero valido tra 0 e 10.
+     * @throws SQLException Gestita internamente con logging tramite logErrorFallback.
+     */
     private void processVoteInput(Team t, String input) {
         if (input == null) return;
         try {
@@ -260,11 +381,19 @@ public class JudgeManageCardPanel {
     /**
      * Metodo di supporto per il logging degli errori minori.
      * Risolve SonarQube S106 (use Logger) e S100 (naming convention).
+     * Registra messaggi di avvertimento a livello WARNING nel Logger.
+     *
+     * @param msg Il messaggio di errore da registrare.
      */
     private void logErrorFallback(String msg) {
         LOGGER.log(Level.WARNING, msg);
     }
 
+    /**
+     * Applica stili e colori personalizzati ai componenti UI.
+     * Configura le palette di colori secondo lo schema UIColors, personalizza
+     * l'incremento di scroll e il layout dei pannelli principali.
+     */
     private void customizeComponents() {
         evaluationLabel.setForeground(UIColors.NIGHT_BLUE);
         infoLabel.setForeground(UIColors.CARMINE_RED);
@@ -275,10 +404,19 @@ public class JudgeManageCardPanel {
         teamsListPanel.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
     }
 
+    /**
+     * Crea i componenti UI personalizzati.
+     * Inizializza il pannello arrotondato (RoundedPanel) per la lista dei team.
+     */
     private void createUIComponents() {
         rTeamsListPanel = new RoundedPanel();
     }
 
+    /**
+     * Restituisce il pannello radice della classe.
+     *
+     * @return Il JPanel principale contenente tutta la UI del pannello Giudice.
+     */
     public JPanel getRootPanel() {
         return rootPanel;
     }

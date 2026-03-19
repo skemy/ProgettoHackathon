@@ -23,10 +23,19 @@ import java.util.Locale;
 
 /**
  * Pannello principale della Dashboard (Layer Boundary).
- * Visualizza l'elenco degli hackathon disponibili e gestisce la creazione di nuovi eventi.
  * <p>
- * Nota Architetturale: Rispetta il pattern BCE delegando la logica di business
- * al Controller e gestendo le eccezioni di persistenza per fornire feedback all'utente.
+ * Visualizza l'elenco degli hackathon disponibili nel sistema e gestisce la creazione di nuovi eventi
+ * per gli utenti autorizzati (Organizzatori). Consente ai partecipanti di registrarsi agli hackathon
+ * tramite interfaccia grafica interattiva.
+ * </p>
+ * <p>
+ * Nota Architetturale: Rispetta il pattern BCE delegando la logica di business al Controller
+ * e gestendo le eccezioni di persistenza per fornire feedback all'utente tramite finestre di dialogo.
+ * </p>
+ *
+ * @see Controller
+ * @see Hackathon
+ * @see User
  */
 public class DashboardCardPanel {
 
@@ -48,8 +57,10 @@ public class DashboardCardPanel {
 
     /**
      * Costruttore del pannello Dashboard.
+     * Inizializza il pannello, personalizza i componenti UI, configura lo scorrimento
+     * e carica i dati iniziali degli hackathon.
      *
-     * @param controller Il coordinatore centrale del sistema.
+     * @param controller Il coordinatore centrale del sistema per accedere ai dati e alla logica di business.
      */
     public DashboardCardPanel(Controller controller) {
         this.controller = controller;
@@ -61,7 +72,13 @@ public class DashboardCardPanel {
 
     /**
      * Esegue il refresh dei dati utente e della lista eventi.
-     * Nota: Rimosso try-catch su getCurrentUser() perché è un getter in memoria (risoluzione errore compilazione).
+     * <p>
+     * Aggiorna l'etichetta di benvenuto con il nome dell'utente corrente, visualizza il pannello
+     * di aggiunta solo se l'utente può creare hackathon, e ricarica l'elenco degli eventi dal database.
+     * </p>
+     * <p>
+     * Nota: Non genera eccezioni perché {@code getCurrentUser()} è un getter in memoria.
+     * </p>
      */
     public void refreshData() {
         rAddPanel.setVisible(controller.canUserCreateHackathon());
@@ -77,6 +94,8 @@ public class DashboardCardPanel {
 
     /**
      * Applica stili e colori personalizzati ai componenti UI.
+     * Configura le palette di colori secondo lo schema UIColors e imposta il cursore
+     * del pannello di scorrimento in cima.
      */
     private void customizeComponents() {
         dashboardLabel.setForeground(UIColors.NIGHT_BLUE);
@@ -91,6 +110,9 @@ public class DashboardCardPanel {
         SwingUtilities.invokeLater(() -> scrollPanel.getVerticalScrollBar().setValue(0));
     }
 
+    /**
+     * Configura il pannello di scorrimento con bordi trasparenti e scroll fluido.
+     */
     private void setupScrollPanel() {
         scrollPanel.setBorder(null);
         scrollPanel.getVerticalScrollBar().setPreferredSize(new Dimension(5, 0));
@@ -102,6 +124,12 @@ public class DashboardCardPanel {
 
     /**
      * Aggiorna la lista degli hackathon interrogando il database tramite il Controller.
+     * <p>
+     * Svuota il pannello della lista, recupera tutti gli hackathon dal database,
+     * crea una card visuale per ciascuno e gestisce il caso di lista vuota.
+     * </p>
+     *
+     * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
      */
     private void updateEventList() {
         eventListPanel.removeAll();
@@ -127,6 +155,13 @@ public class DashboardCardPanel {
 
     /**
      * Crea graficamente una card per rappresentare un Hackathon.
+     * <p>
+     * La card visualizza il titolo, la location e le date dell'evento, con effetti interattivi
+     * al passaggio del mouse e gestione del clic per la registrazione.
+     * </p>
+     *
+     * @param h L'oggetto Hackathon da visualizzare nella card.
+     * @return Un pannello arrotondato configurato per visualizzare i dettagli dell'hackathon.
      */
     private RoundedPanel createEventCard(Hackathon h) {
         RoundedPanel card = new RoundedPanel();
@@ -169,6 +204,15 @@ public class DashboardCardPanel {
         return card;
     }
 
+    /**
+     * Gestisce la registrazione dell'utente a un hackathon.
+     * <p>
+     * Mostra una finestra di conferma, e in caso di accettazione chiama il Controller
+     * per eseguire la registrazione. Aggiorna la UI al completamento.
+     * </p>
+     *
+     * @param h L'oggetto Hackathon a cui registrarsi.
+     */
     private void handleRegistration(Hackathon h) {
         int choice = JOptionPane.showConfirmDialog(rootPanel,
                 "Do you want to register for: " + h.getTitle() + "?",
@@ -187,6 +231,13 @@ public class DashboardCardPanel {
         }
     }
 
+    /**
+     * Configura il listener del pannello di aggiunta hackathon.
+     * <p>
+     * Abilita il clic sulla zona "Add" per mostrare il dialogo di creazione evento.
+     * Verifica i permessi dell'utente prima di consentire l'accesso.
+     * </p>
+     */
     private void setupAddPanelListener() {
         rAddPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         rAddPanel.addMouseListener(new MouseAdapter() {
@@ -201,6 +252,23 @@ public class DashboardCardPanel {
         });
     }
 
+    /**
+     * Mostra un dialogo per la creazione di un nuovo hackathon.
+     * <p>
+     * Consente all'utente di inserire titolo, location, date di inizio/fine,
+     * numero massimo di partecipanti e dimensione massima del team.
+     * Valida i parametri lato GUI prima di invocare il Controller.
+     * </p>
+     * <p>
+     * Gestisce eccezioni di:
+     * <ul>
+     *   <li>{@link NumberFormatException} - Se max partecipanti o team size non sono numeri validi.</li>
+     *   <li>{@link DateTimeParseException} - Se le date non rispettano il formato YYYY-MM-DD.</li>
+     *   <li>{@link SQLException} - Se si verifica un errore di database.</li>
+     *   <li>{@link Exception} - Per altre eccezioni di business lato Controller.</li>
+     * </ul>
+     * </p>
+     */
     private void showCreateHackathonDialog() {
         JTextField titleF = new JTextField();
         JTextField locF = new JTextField();
@@ -261,11 +329,20 @@ public class DashboardCardPanel {
         }
     }
 
+    /**
+     * Crea i componenti UI personalizzati.
+     * Inizializza il pannello di aggiunta arrotondato e configura il suo listener.
+     */
     private void createUIComponents() {
         rAddPanel = new RoundedPanel();
         setupAddPanelListener();
     }
 
+    /**
+     * Restituisce il pannello radice della Dashboard.
+     *
+     * @return Il JPanel principale contenente tutta la UI della Dashboard.
+     */
     public JPanel getRootPanel() {
         return rootPanel;
     }
@@ -384,3 +461,4 @@ public class DashboardCardPanel {
     }
 
 }
+

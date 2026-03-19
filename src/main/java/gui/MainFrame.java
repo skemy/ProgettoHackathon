@@ -18,9 +18,29 @@ import java.sql.SQLException;
 import java.util.Locale;
 
 /**
- * Finestra principale dell'applicazione (Boundary).
+ * Finestra principale dell'applicazione (Layer Boundary).
+ * <p>
  * Gestisce la navigazione tra le diverse aree funzionali tramite una sidebar interattiva
- * e un sistema di CardLayout.
+ * e un sistema di CardLayout. Consente il passaggio tra Dashboard, Hackathon, Team,
+ * Manage (Organizzatori) ed Evaluation (Giudici) in base al ruolo dell'utente.
+ * </p>
+ * <p>
+ * Funzionalità principali:
+ * <ul>
+ *   <li>Caricamento dello stato dell'utente loggato.</li>
+ *   <li>Gestione della visibilità dei pannelli in base al ruolo (Organizer, Judge, Participant).</li>
+ *   <li>Navigazione tra i vari card panel tramite click sulla sidebar.</li>
+ *   <li>Effetti visivi interattivi (hover) sulla sidebar.</li>
+ *   <li>Controllo dello stato di "kicked" per utenti rimossi dall'evento.</li>
+ * </ul>
+ * </p>
+ *
+ * @see Controller
+ * @see DashboardCardPanel
+ * @see HackathonCardPanel
+ * @see TeamCardPanel
+ * @see OrganizerManageCardPanel
+ * @see JudgeManageCardPanel
  */
 public class MainFrame extends JFrame {
 
@@ -74,6 +94,13 @@ public class MainFrame extends JFrame {
         checkKickedStatus();
     }
 
+    /**
+     * Inizializza le proprietà della finestra principale.
+     * <p>
+     * Imposta il titolo con il nome dell'utente corrente, le dimensioni della finestra,
+     * l'operazione di chiusura e la posizione rispetto allo schermo.
+     * </p>
+     */
     private void initializeWindowProperties() {
         String userName = "User";
         try {
@@ -89,6 +116,20 @@ public class MainFrame extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    /**
+     * Configura il sistema di CardLayout e aggiunge tutti i pannelli delle schede.
+     * <p>
+     * Crea e registra i seguenti pannelli:
+     * <ul>
+     *   <li>DashboardCardPanel - Visualizzazione hackathon disponibili.</li>
+     *   <li>HackathonCardPanel - Dettagli evento e ranking.</li>
+     *   <li>TeamCardPanel - Gestione del team.</li>
+     *   <li>OrganizerManageCardPanel - Gestione per organizzatori.</li>
+     *   <li>JudgeManageCardPanel - Valutazione per giudici.</li>
+     * </ul>
+     * Mostra il pannello Dashboard all'avvio.
+     * </p>
+     */
     private void setupCardPanel() {
         cardLayout = new CardLayout();
         cardPanel.setLayout(cardLayout);
@@ -111,6 +152,14 @@ public class MainFrame extends JFrame {
         cardLayout.show(cardPanel, DASHBOARD_ID);
     }
 
+    /**
+     * Applica stili e colori personalizzati ai componenti UI.
+     * <p>
+     * Configura la palette di colori della sidebar secondo UIColors, ripristina i colori
+     * di tutti i pannelli della sidebar e gestisce la visibilità dei pannelli di Manage
+     * e Evaluation in base al ruolo dell'utente.
+     * </p>
+     */
     private void customizeComponents() {
         sidebarPanel.setBackground(UIColors.NIGHT_BLUE);
         containerPanel.setBackground(UIColors.NIGHT_BLUE);
@@ -129,6 +178,13 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /**
+     * Ripristina i colori standard della sidebar.
+     * <p>
+     * Imposta il colore di sfondo di tutti i pannelli della sidebar a NIGHT_BLUE
+     * e il colore del testo a bianco.
+     * </p>
+     */
     private void resetSidebarColors() {
         rDashboardPanel.setBackground(UIColors.NIGHT_BLUE);
         dashboardLabel.setForeground(Color.WHITE);
@@ -144,6 +200,13 @@ public class MainFrame extends JFrame {
         logoutLabel.setForeground(Color.WHITE);
     }
 
+    /**
+     * Verifica se l'utente è stato rimosso dall'evento e visualizza un messaggio di avviso.
+     * <p>
+     * Se l'evento è iniziato senza che l'utente avesse un team, l'iscrizione viene annullata
+     * e un messaggio di avviso viene mostrato all'utente.
+     * </p>
+     */
     private void checkKickedStatus() {
         if (controller.wasRecentlyKicked()) {
             JOptionPane.showMessageDialog(this,
@@ -153,6 +216,22 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /**
+     * Configura i listener della sidebar per la navigazione tra i pannelli.
+     * <p>
+     * Registra i listener per:
+     * <ul>
+     *   <li>Dashboard - Navigazione senza refresh.</li>
+     *   <li>Hackathon - Navigazione con refresh dei dati.</li>
+     *   <li>Team - Navigazione con verifica di iscrizione a evento.</li>
+     *   <li>Manage - Navigazione con refresh per organizzatori.</li>
+     *   <li>Evaluation - Navigazione con refresh per giudici.</li>
+     *   <li>Logout - Chiusura della finestra.</li>
+     * </ul>
+     * Gestisce gli effetti hover (cambio colore) su tutti gli elementi della sidebar.
+     * </p>
+     * @throws SQLException Gestita internamente con visualizzazione di messaggi di errore.
+     */
     private void setupListeners() {
         rDashboardPanel.addMouseListener(new SidebarListener(rDashboardPanel, DASHBOARD_ID, null));
 
@@ -207,36 +286,75 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * Classe interna per gestire i listener della sidebar riducendo la duplicazione di codice.
+     * Classe interna per gestire i listener della sidebar.
+     * <p>
+     * Riduce la duplicazione di codice centralizzando la logica di navigazione,
+     * refresh e effetti visivi per i pannelli della sidebar.
+     * </p>
      */
     private class SidebarListener extends MouseAdapter {
         private final JPanel panel;
         private final String cardId;
         private final Runnable refreshAction;
 
+        /**
+         * Costruttore del listener della sidebar.
+         *
+         * @param panel Il pannello della sidebar su cui registrare il listener.
+         * @param cardId L'ID della scheda da visualizzare nel CardLayout.
+         * @param refreshAction Un'azione opzionale da eseguire prima della navigazione (può essere null).
+         */
         public SidebarListener(JPanel panel, String cardId, Runnable refreshAction) {
             this.panel = panel;
             this.cardId = cardId;
             this.refreshAction = refreshAction;
         }
 
+        /**
+         * Gestisce l'evento di pressione del mouse sulla sidebar.
+         * <p>
+         * Esegue l'azione di refresh se fornita, quindi mostra la scheda corrispondente.
+         * </p>
+         *
+         * @param e L'evento del mouse.
+         */
         @Override
         public void mousePressed(MouseEvent e) {
             if (refreshAction != null) refreshAction.run();
             cardLayout.show(cardPanel, cardId);
         }
 
+        /**
+         * Gestisce l'evento di mouse che entra nella zona della sidebar.
+         * <p>
+         * Cambia il colore di sfondo del pannello a CARMINE_RED per evidenziare l'elemento.
+         * </p>
+         *
+         * @param e L'evento del mouse.
+         */
         @Override
         public void mouseEntered(MouseEvent e) {
             panel.setBackground(UIColors.CARMINE_RED);
         }
 
+        /**
+         * Gestisce l'evento di mouse che esce dalla zona della sidebar.
+         * <p>
+         * Ripristina il colore di sfondo del pannello a NIGHT_BLUE.
+         * </p>
+         *
+         * @param e L'evento del mouse.
+         */
         @Override
         public void mouseExited(MouseEvent e) {
             panel.setBackground(UIColors.NIGHT_BLUE);
         }
     }
 
+    /**
+     * Crea i componenti UI personalizzati.
+     * Inizializza i pannelli arrotondati (RoundedPanel) per la sidebar e il logout.
+     */
     private void createUIComponents() {
         rDashboardPanel = new RoundedPanel();
         rHackathonPanel = new RoundedPanel();
@@ -350,3 +468,4 @@ public class MainFrame extends JFrame {
     }
 
 }
+

@@ -15,6 +15,11 @@ public class HackathonDAOImpl implements HackathonDAO {
 
     private static final Logger LOGGER = Logger.getLogger(HackathonDAOImpl.class.getName());
 
+    /**
+     * Crea un nuovo hackathon nel database.
+     * @param h L'oggetto Hackathon da creare.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void createHackathon(Hackathon h) throws SQLException {
         String query = "INSERT INTO hackathon (title, location, startDate, endDate, " +
@@ -45,6 +50,12 @@ public class HackathonDAOImpl implements HackathonDAO {
         }
     }
 
+    /**
+     * Recupera un hackathon tramite il suo ID.
+     * @param id L'ID dell'hackathon.
+     * @return L'oggetto Hackathon corrispondente, o null se non trovato.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public Hackathon getHackathonById(int id) throws SQLException {
         // Specifico le colonne invece di usare SELECT * (Sonar S6905)
@@ -62,6 +73,11 @@ public class HackathonDAOImpl implements HackathonDAO {
         return null;
     }
 
+    /**
+     * Recupera tutti gli hackathon dal database.
+     * @return Una lista di oggetti Hackathon.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public List<Hackathon> getAllHackathons() throws SQLException {
         List<Hackathon> list = new ArrayList<>();
@@ -78,6 +94,12 @@ public class HackathonDAOImpl implements HackathonDAO {
         return list;
     }
 
+    /**
+     * Aggiorna la descrizione del problema per un hackathon specifico.
+     * @param hackathonId L'ID dell'hackathon.
+     * @param description La nuova descrizione del problema.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void updateProblemDescription(int hackathonId, String description) throws SQLException {
         String query = "UPDATE hackathon SET problemDescription = ? WHERE hackathonId = ?";
@@ -90,6 +112,12 @@ public class HackathonDAOImpl implements HackathonDAO {
         }
     }
 
+    /**
+     * Recupera il nome utente dell'organizzatore per un hackathon specifico.
+     * @param hackathonId L'ID dell'hackathon.
+     * @return Il nome dell'organizzatore, o "Unknown Organizer" se non trovato.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public String getOrganizerUsernameByHackathonId(int hackathonId) throws SQLException {
         String query = "SELECT u.name FROM users u JOIN organizer o ON u.userId = o.userId WHERE o.hackathonId = ?";
@@ -103,6 +131,12 @@ public class HackathonDAOImpl implements HackathonDAO {
         return "Unknown Organizer";
     }
 
+    /**
+     * Recupera l'ID dell'hackathon dove l'utente è organizzatore.
+     * @param userId L'ID dell'utente.
+     * @return L'ID dell'hackathon, o -1 se non trovato.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public int getHackathonIdWhereUserIsOrganizer(int userId) throws SQLException {
         String query = "SELECT hackathonId FROM organizer WHERE userId = ?";

@@ -8,9 +8,18 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Implementazione dell'interfaccia DocumentDAO per la gestione dei documenti nel database.
+ * Questa classe fornisce metodi per caricare, recuperare, ottenere e eliminare documenti associati a team specifici.
+ */
 public class DocumentDAOImpl implements DocumentDAO {
     private static final Logger LOGGER = Logger.getLogger(DocumentDAOImpl.class.getName());
 
+    /**
+     * Carica un documento nel database.
+     * @param doc Il documento da caricare.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void uploadDocument(Document doc) throws SQLException {
         String query = "INSERT INTO document (documentLink, description, teamId, uploadDate) VALUES (?, ?, ?, ?)";
@@ -25,6 +34,12 @@ public class DocumentDAOImpl implements DocumentDAO {
         }
     }
 
+    /**
+     * Recupera una lista di documenti associati a un team specifico.
+     * @param teamId L'ID del team per cui recuperare i documenti.
+     * @return Una lista di documenti del team.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public List<Document> getDocumentsByTeam(int teamId) throws SQLException {
         List<Document> docs = new ArrayList<>();
@@ -42,6 +57,12 @@ public class DocumentDAOImpl implements DocumentDAO {
         return docs;
     }
 
+    /**
+     * Recupera un documento specifico tramite il suo ID.
+     * @param documentId L'ID del documento da recuperare.
+     * @return Il documento corrispondente all'ID, o null se non trovato.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public Document getDocumentById(int documentId) throws SQLException {
         String query = "SELECT documentId, description, documentLink, uploadDate, teamId FROM document WHERE documentId = ?";
@@ -58,6 +79,11 @@ public class DocumentDAOImpl implements DocumentDAO {
         return null;
     }
 
+    /**
+     * Elimina un documento dal database tramite il suo ID.
+     * @param documentId L'ID del documento da eliminare.
+     * @throws SQLException Se si verifica un errore durante l'operazione di database.
+     */
     @Override
     public void deleteDocument(int documentId) throws SQLException {
         String query = "DELETE FROM document WHERE documentId = ?";

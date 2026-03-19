@@ -4,6 +4,10 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+/**
+ * Classe singleton per la gestione della connessione al database PostgreSQL.
+ * Fornisce un'istanza unica di connessione per evitare connessioni multiple e gestire la riconnessione se necessario.
+ */
 public class ConnessioneDatabase {
 
 	private static ConnessioneDatabase instance;
@@ -31,6 +35,12 @@ public class ConnessioneDatabase {
 		}
 	}
 
+	/**
+	 * Restituisce l'istanza unica della classe ConnessioneDatabase.
+	 * Se l'istanza non esiste o la connessione è chiusa, ne crea una nuova.
+	 * @return L'istanza di ConnessioneDatabase.
+	 * @throws SQLException Se si verifica un errore durante la creazione della connessione.
+	 */
 	public static ConnessioneDatabase getInstance() throws SQLException {
 		if (instance == null) {
 			instance = new ConnessioneDatabase();
@@ -41,6 +51,10 @@ public class ConnessioneDatabase {
 	}
 
 	// CORREZIONE 2: Il metodo che mancava e che il DAO sta cercando!
+	/**
+	 * Restituisce l'oggetto Connection per eseguire query sul database.
+	 * @return L'oggetto Connection attivo.
+	 */
 	public Connection getConnection() {
 		return connection;
 	}

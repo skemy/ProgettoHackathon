@@ -22,8 +22,34 @@ import java.util.Locale;
 /**
  * Pannello per la gestione del Team (Layer Boundary).
  * <p>
- * Nota: Sopprimiamo S1450 perché i campi Label/Panel sono necessari al GUI Designer
+ * Gestisce l'interfaccia grafica per la creazione e l'unione ai team, nonché la visualizzazione
+ * dei membri del team e dei documenti caricati. Consente ai partecipanti di:
+ * <ul>
+ *   <li>Creare un nuovo team e ricevere un codice di accesso.</li>
+ *   <li>Unirsi a un team esistente tramite codice di accesso.</li>
+ *   <li>Visualizzare i membri del team e le loro informazioni di contatto.</li>
+ *   <li>Caricare documenti di progetto e visualizzare i feedback dei giudici.</li>
+ *   <li>Copiare il codice di accesso del team negli appunti.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * L'interfaccia si adatta dinamicamente in base allo stato dell'utente:
+ * <ul>
+ *   <li><b>Utente in Limbo:</b> Mostra i pulsanti "Create Team" e "Join Team".</li>
+ *   <li><b>Membro del Team:</b> Mostra i dati del team, i membri e i documenti caricati.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * Nota Architetturale: Sopprimiamo S1450 perché i campi Label/Panel sono necessari al GUI Designer
  * di IntelliJ per il corretto binding del file .form, anche se usati solo nel setup.
+ * </p>
+ *
+ * @see Controller
+ * @see Participant
+ * @see Team
+ * @see Document
+ * @see Feedback
+ * @see DocumentUploadDialog
  */
 @SuppressWarnings("java:S1450")
 public class TeamCardPanel {
@@ -51,6 +77,15 @@ public class TeamCardPanel {
 
     private final Controller controller;
 
+    /**
+     * Costruttore del pannello di gestione team.
+     * <p>
+     * Inizializza il pannello con il controller fornito, configura i componenti UI tramite il GUI Designer,
+     * personalizza gli stili, configura i listener di mouse, e carica i dati iniziali dello stato del team.
+     * </p>
+     *
+     * @param controller Il coordinatore del layer Control per accedere ai dati e alla logica di business.
+     */
     public TeamCardPanel(Controller controller) {
         this.controller = controller;
 
@@ -63,6 +98,19 @@ public class TeamCardPanel {
 
     /**
      * Sincronizza l'interfaccia con lo stato attuale dell'utente.
+     * <p>
+     * Determina se l'utente è un membro di un team (istanza di Participant con team assegnato)
+     * oppure è ancora in "limbo" (senza team). Aggiorna l'UI di conseguenza:
+     * <ul>
+     *   <li>Se membro: mostra nome team, codice accesso, lista membri e documenti.</li>
+     *   <li>Se in limbo: mostra pulsanti di creazione/unione team.</li>
+     * </ul>
+     * </p>
+     * <p>
+     * Gestisce la SQLException visualizzando un messaggio di errore all'utente.
+     * </p>
+     *
+     * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
      */
     public void refreshData() {
         User currentUser = controller.getCurrentUser();
@@ -81,6 +129,15 @@ public class TeamCardPanel {
         rootPanel.repaint();
     }
 
+    /**
+     * Configura l'interfaccia per un utente membro di un team.
+     * <p>
+     * Recupera il team dell'utente dal database, visualizza il nome e il codice di accesso,
+     * e popola le liste di membri e documenti caricati.
+     * </p>
+     *
+     * @throws SQLException Se si verifica un errore durante il recupero dei dati dal database.
+     */
     private void setupUIForTeamMember() throws SQLException {
         Team myTeam = controller.getMyTeam();
         if (myTeam != null) {
@@ -94,6 +151,13 @@ public class TeamCardPanel {
         updateUploadsList();
     }
 
+    /**
+     * Configura l'interfaccia per un utente in "limbo" (non assegnato a un team).
+     * <p>
+     * Mostra un messaggio informativo, nasconde il codice di accesso, abilita i pulsanti
+     * di creazione/unione team e svuota le liste di membri e documenti.
+     * </p>
+     */
     private void setupUIForLimboUser() {
         infoLabel.setText("Non sei ancora in un team.");
         accessCodeLabel.setVisible(false);
@@ -102,6 +166,12 @@ public class TeamCardPanel {
         uploadsListPanel.removeAll();
     }
 
+    /**
+     * Toglie/attiva i controlli di creazione e unione team a seconda dello stato dell'utente.
+     *
+     * @param isLimbo true se l'utente è in limbo (mostra i pulsanti di creazione/unione).
+     *                false se l'utente è membro di un team (nasconde i pulsanti).
+     */
     private void toggleControlsVisibility(boolean isLimbo) {
         rCreateTeamPanel.setVisible(isLimbo);
         rJoinTeamPanel.setVisible(isLimbo);
@@ -110,6 +180,18 @@ public class TeamCardPanel {
         rAddPanel.setVisible(!isLimbo);
     }
 
+    /**
+     * Configura tutti i listener di mouse per i pulsanti e i controlli interattivi.
+     * <p>
+     * Registra i listener per:
+     * <ul>
+     *   <li>Creazione di un nuovo team.</li>
+     *   <li>Unione a un team esistente.</li>
+     *   <li>Caricamento di documenti.</li>
+     *   <li>Copia del codice di accesso negli appunti.</li>
+     * </ul>
+     * </p>
+     */
     private void setupAllListeners() {
         setupCreateTeamListener();
         setupJoinTeamListener();
@@ -117,6 +199,24 @@ public class TeamCardPanel {
         setupCopyCodeListener();
     }
 
+    /**
+     * Configura il listener per il pulsante "Create Team".
+     * <p>
+     * Valida i permessi dell'utente tramite il Controller, mostra un dialogo di input
+     * per il nome del team, e lo crea se confermato. Gestisce le eccezioni di autorizzazione
+     * e di database visualizzando messaggi di errore.
+     * </p>
+     * <p>
+     * Effetti visivi: Cambio colore a CARMINE_RED al passaggio del mouse (hover).
+     * </p>
+     * <p>
+     * Eccezioni gestite:
+     * <ul>
+     *   <li>{@link IllegalStateException} - Se l'utente non ha i permessi (es. è un Giudice).</li>
+     *   <li>{@link SQLException} - Se si verifica un errore di database.</li>
+     * </ul>
+     * </p>
+     */
     private void setupCreateTeamListener() {
         rCreateTeamPanel.addMouseListener(new MouseAdapter() {
             @Override
@@ -151,6 +251,21 @@ public class TeamCardPanel {
         });
     }
 
+    /**
+     * Configura il listener per il pulsante "Join Team".
+     * <p>
+     * Valida i permessi dell'utente, mostra un dialogo di input per il codice di accesso,
+     * e aggiunge l'utente al team se il codice è valido. Gestisce le eccezioni visualizzando
+     * messaggi di errore.
+     * </p>
+     * <p>
+     * Eccezioni gestite:
+     * <ul>
+     *   <li>{@link IllegalStateException} - Se l'utente non ha i permessi.</li>
+     *   <li>{@link SQLException} - Se il codice non è valido o si verifica un errore di database.</li>
+     * </ul>
+     * </p>
+     */
     private void setupJoinTeamListener() {
         rJoinTeamPanel.addMouseListener(new MouseAdapter() {
             @Override
@@ -172,6 +287,16 @@ public class TeamCardPanel {
         });
     }
 
+    /**
+     * Configura il listener per il pulsante "Add" (caricamento documento).
+     * <p>
+     * Apre il dialogo di caricamento documento (DocumentUploadDialog) e aggiorna
+     * la lista dei documenti caricati al completamento.
+     * </p>
+     * <p>
+     * Effetti visivi: Cambio colore a CARMINE_RED al passaggio del mouse (hover).
+     * </p>
+     */
     private void setupUploadListener() {
         rAddPanel.addMouseListener(new MouseAdapter() {
             @Override
@@ -193,6 +318,16 @@ public class TeamCardPanel {
         });
     }
 
+    /**
+     * Configura il listener per il codice di accesso del team.
+     * <p>
+     * Al clic, copia il codice di accesso negli appunti di sistema e visualizza
+     * temporaneamente il messaggio "Copiato!" prima di ripristinare il testo originale.
+     * </p>
+     * <p>
+     * Gestisce la SQLException silenziosamente (nessun feedback all'utente).
+     * </p>
+     */
     private void setupCopyCodeListener() {
         accessCodeLabel.addMouseListener(new MouseAdapter() {
             @Override
@@ -213,6 +348,15 @@ public class TeamCardPanel {
         });
     }
 
+    /**
+     * Recupera e visualizza la lista dei membri del team.
+     * <p>
+     * Svuota il pannello, recupera tutti i partecipanti del team dal database,
+     * e crea una card per ciascun membro visualizzando nome e email.
+     * </p>
+     *
+     * @throws SQLException Se si verifica un errore durante il recupero dei dati dal database.
+     */
     private void updateMembersList() throws SQLException {
         membersListPanel.removeAll();
         List<Participant> members = controller.getMyTeamMembers();
@@ -225,6 +369,15 @@ public class TeamCardPanel {
         }
     }
 
+    /**
+     * Recupera e visualizza la lista dei documenti caricati dal team.
+     * <p>
+     * Svuota il pannello, recupera tutti i documenti del team dal database,
+     * crea una card per ciascun documento con listener per visualizzare i feedback dei giudici.
+     * </p>
+     *
+     * @throws SQLException Se si verifica un errore durante il recupero dei dati dal database.
+     */
     private void updateUploadsList() throws SQLException {
         uploadsListPanel.removeAll();
         List<Document> docs = controller.getMyTeamDocuments();
@@ -249,6 +402,17 @@ public class TeamCardPanel {
         }
     }
 
+    /**
+     * Visualizza la cronologia dei feedback ricevuti per un documento.
+     * <p>
+     * Recupera tutti i feedback dei giudici per il documento fornito e li visualizza
+     * in un dialogo formattato in HTML con il nome del giudice e il commento.
+     * Se nessun feedback è disponibile, mostra un messaggio informativo.
+     * </p>
+     *
+     * @param d Il documento per il quale visualizzare i feedback.
+     * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
+     */
     private void showFeedbackHistory(Document d) {
         try {
             List<Feedback> feedbacks = controller.getDocumentFeedbacks(d.getDocumentId());
@@ -274,6 +438,17 @@ public class TeamCardPanel {
         }
     }
 
+    /**
+     * Applica stili e colori personalizzati ai componenti UI.
+     * <p>
+     * Configura:
+     * <ul>
+     *   <li>Colori dei pulsanti (background e testo) secondo la palette UIColors.</li>
+     *   <li>Cursore HAND_CURSOR su tutti i controlli cliccabili.</li>
+     *   <li>Bordi arrotondati per i pannelli.</li>
+     * </ul>
+     * </p>
+     */
     private void customizeComponents() {
         rCreateTeamPanel.setBackground(UIColors.NIGHT_BLUE);
         createTeamLabel.setForeground(Color.WHITE);
@@ -289,18 +464,35 @@ public class TeamCardPanel {
         accessCodeLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
+    /**
+     * Crea i componenti UI personalizzati.
+     * Inizializza i pannelli arrotondati (RoundedPanel) per i pulsanti
+     * "Create Team", "Join Team" e "Add".
+     */
     private void createUIComponents() {
         rCreateTeamPanel = new RoundedPanel();
         rJoinTeamPanel = new RoundedPanel();
         rAddPanel = new RoundedPanel();
     }
 
+    /**
+     * Configura il pannello di scorrimento con layout verticale.
+     * <p>
+     * Rimuove il bordo del pannello e imposta il layout dei pannelli interni
+     * (membersListPanel e uploadsListPanel) a BoxLayout verticale.
+     * </p>
+     */
     private void setupScrollPanel() {
         scrollPanel.setBorder(null);
         membersListPanel.setLayout(new BoxLayout(membersListPanel, BoxLayout.Y_AXIS));
         uploadsListPanel.setLayout(new BoxLayout(uploadsListPanel, BoxLayout.Y_AXIS));
     }
 
+    /**
+     * Restituisce il pannello radice della classe.
+     *
+     * @return Il JPanel principale contenente tutta la UI del pannello di gestione Team.
+     */
     public JPanel getRootPanel() {
         return rootPanel;
     }
@@ -466,3 +658,4 @@ public class TeamCardPanel {
     }
 
 }
+

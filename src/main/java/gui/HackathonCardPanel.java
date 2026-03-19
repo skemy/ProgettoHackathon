@@ -84,8 +84,10 @@ public class HackathonCardPanel {
 
     /**
      * Costruttore del pannello.
+     * Inizializza il controller, configura i componenti UI, personalizza gli stili,
+     * imposta la logica di editing e ranking, e carica i dati iniziali dell'hackathon.
      *
-     * @param controller Istanza del Controller per le operazioni di logica.
+     * @param controller Istanza del Controller per le operazioni di logica e persistenza.
      */
     public HackathonCardPanel(Controller controller) {
         this.controller = controller;
@@ -96,6 +98,12 @@ public class HackathonCardPanel {
         refreshData();
     }
 
+    /**
+     * Restituisce il testo HTML delle regole di ranking.
+     * Spiega i criteri utilizzati per ordinare i team nella classifica finale.
+     *
+     * @return Una stringa HTML formattata contenente i criteri di ranking.
+     */
     private String getRankingRulesHtml() {
         return "<html><div style='text-align: left; color: gray; font-size: 10px; margin-bottom: 5px; width: 100%;'>" +
                 "<b>Ranking Criteria:</b><br>" +
@@ -107,7 +115,13 @@ public class HackathonCardPanel {
 
     /**
      * Aggiorna i dati mostrati a schermo recuperando lo stato attuale dell'Hackathon.
-     * Gestisce la 'SQLException' del Controller.
+     * <p>
+     * Carica il titolo dell'evento, i dettagli di overview (date, location, limiti),
+     * il problem statement e il ranking (live o finale). Gestisce il caso di utente
+     * non registrato a nessun hackathon.
+     * </p>
+     *
+     * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
      */
     public void refreshData() { // Rimosso parametro inutilizzato (Sonar S1172)
         try {
@@ -152,6 +166,11 @@ public class HackathonCardPanel {
         }
     }
 
+    /**
+     * Applica stili e colori personalizzati ai componenti UI.
+     * Configura la palette di colori secondo lo schema UIColors, i bordi del pannello
+     * di scorrimento e le proprietà dei campi di testo.
+     */
     private void customizeComponents() {
         scrollPanel.setBorder(null);
         scrollPanel.getVerticalScrollBar().setPreferredSize(new Dimension(5, 0));
@@ -174,6 +193,10 @@ public class HackathonCardPanel {
         rankingListPanel.setBackground(Color.WHITE);
     }
 
+    /**
+     * Disabilita la modalità di modifica del Problem Statement.
+     * Ripristina lo stato iniziale con il testo non editabile e il pulsante di edit.
+     */
     private void disableEditingUI() {
         isEditingMode = false;
         problemStatementTextArea.setEditable(false);
@@ -181,6 +204,11 @@ public class HackathonCardPanel {
         rEditPanel.setBackground(UIColors.NIGHT_BLUE);
     }
 
+    /**
+     * Configura il listener per il pannello di editing del Problem Statement.
+     * Verifica i permessi dell'utente (solo organizzatori possono modificare)
+     * e gestisce il toggle tra modalità visualizzazione e modifica.
+     */
     private void setupEditLogic() {
         rEditPanel.addMouseListener(new MouseAdapter() {
             @Override
@@ -194,6 +222,20 @@ public class HackathonCardPanel {
         });
     }
 
+    /**
+     * Gestisce il toggle tra modalità visualizzazione e modifica del Problem Statement.
+     * <p>
+     * In modalità modifica: attiva l'editing del testo e cambia il colore del pulsante.
+     * In modalità salvataggio: chiede conferma e salva le modifiche tramite il Controller.
+     * </p>
+     * <p>
+     * Gestisce eccezioni:
+     * <ul>
+     *   <li>{@link SQLException} - Se si verifica un errore di database.</li>
+     *   <li>{@link IllegalStateException} - Se l'evento è terminato e non può essere modificato.</li>
+     * </ul>
+     * </p>
+     */
     private void handleEditToggle() {
         if (!isEditingMode) {
             // Entra in modalità modifica
@@ -224,6 +266,10 @@ public class HackathonCardPanel {
         }
     }
 
+    /**
+     * Configura il listener per il pannello di pubblicazione del ranking.
+     * Permette agli organizzatori di aggiornare la classifica in tempo reale.
+     */
     private void setupRankingLogic() {
         rPublishPanel.addMouseListener(new MouseAdapter() {
             @Override
@@ -237,6 +283,15 @@ public class HackathonCardPanel {
         });
     }
 
+    /**
+     * Carica e visualizza il ranking dei team.
+     * <p>
+     * Mostra il ranking finale se l'evento è terminato, oppure il ranking live
+     * se richiesto dall'organizzatore. Include le regole di ranking formattate in HTML.
+     * </p>
+     *
+     * @param isFinal true per mostrare la classifica finale, false per il ranking live.
+     */
     private void loadRanking(boolean isFinal) {
         JLabel rulesLabel = new JLabel(getRankingRulesHtml());
         rulesLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -260,6 +315,14 @@ public class HackathonCardPanel {
         }
     }
 
+    /**
+     * Popola i campi di overview con i dati dell'hackathon.
+     * Visualizza titolo, location, date (inizio, fine, deadline), numero massimo di partecipanti,
+     * dimensione massima del team e nome dell'organizzatore.
+     *
+     * @param h L'oggetto Hackathon da visualizzare.
+     * @throws SQLException Se si verifica un errore durante il recupero del nome dell'organizzatore.
+     */
     private void populateFields(Hackathon h) throws SQLException {
         titleContentLabel.setText(h.getTitle());
         locationContentLabel.setText(h.getLocation());
@@ -272,6 +335,10 @@ public class HackathonCardPanel {
         organizerContentLabel.setText("@" + controller.getOrganizerNameForHackathon(h.getHackathonId()));
     }
 
+    /**
+     * Azzera i campi di overview visualizzando dei trattini.
+     * Utilizzato quando l'utente non è registrato a nessun hackathon.
+     */
     private void clearFields() {
         titleContentLabel.setText("-");
         locationContentLabel.setText("-");
@@ -283,6 +350,16 @@ public class HackathonCardPanel {
         organizerContentLabel.setText("-");
     }
 
+    /**
+     * Crea graficamente una card per visualizzare una riga della classifica.
+     * <p>
+     * La card contiene il testo del ranking formattato in grassetto e utilizza
+     * i colori della palette UIColors.
+     * </p>
+     *
+     * @param rankText Il testo formattato del ranking (es. "1. Team Name - Score: 95").
+     * @return Un RoundedPanel configurato con lo stile della card di ranking.
+     */
     private RoundedPanel createRankingCard(String rankText) {
         RoundedPanel card = new RoundedPanel();
         card.setLayout(new FlowLayout(FlowLayout.LEFT));
@@ -294,6 +371,11 @@ public class HackathonCardPanel {
         return card;
     }
 
+    /**
+     * Crea i componenti UI personalizzati.
+     * Inizializza i pannelli arrotondati (RoundedPanel) per i vari campi di overview,
+     * edit e publish.
+     */
     private void createUIComponents() {
         rTitlePanel = new RoundedPanel();
         rLocationPanel = new RoundedPanel();
@@ -315,6 +397,11 @@ public class HackathonCardPanel {
         rPublishPanel = new RoundedPanel();
     }
 
+    /**
+     * Restituisce il pannello radice della classe.
+     *
+     * @return Il JPanel principale contenente tutta la UI del pannello Hackathon.
+     */
     public JPanel getRootPanel() {
         return rootPanel;
     }
@@ -639,3 +726,4 @@ public class HackathonCardPanel {
     }
 
 }
+
