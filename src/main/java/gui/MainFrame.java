@@ -44,7 +44,6 @@ import java.util.Locale;
  */
 public class MainFrame extends JFrame {
 
-    // Costanti per risolvere SonarQube S1192 (Duplicate Literals)
     private static final String DASHBOARD_ID = "dashboard";
     private static final String DB_ERROR_TITLE = "Database Error";
 
@@ -106,11 +105,9 @@ public class MainFrame extends JFrame {
         try {
             userName = controller.getCurrentUser().getName();
         } catch (Exception e) {
-            // Fallback silenzioso per il titolo se il DB non risponde
         }
         setTitle("Hackathon.IO - Home (@" + userName + ")");
         setSize(1000, 700);
-        // FIX SonarQube S3252: Accesso statico via WindowConstants
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setContentPane(rootPanel);
         setLocationRelativeTo(null);
@@ -235,7 +232,6 @@ public class MainFrame extends JFrame {
     private void setupListeners() {
         rDashboardPanel.addMouseListener(new SidebarListener(rDashboardPanel, DASHBOARD_ID, null));
 
-        // FIX Errore Compilazione: Rimosso parametro booleano (Expected no arguments)
         rHackathonPanel.addMouseListener(new SidebarListener(rHackathonPanel, "hackathon", () -> hackathonCard.refreshData()));
 
         rTeamPanel.addMouseListener(new MouseAdapter() {
@@ -270,7 +266,11 @@ public class MainFrame extends JFrame {
         rLogoutPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                dispose();
+                SwingUtilities.invokeLater(() -> {
+                    new AuthFrame(controller).setVisible(true);
+                    JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(rootPanel);
+                    if (frame != null) frame.dispose();
+                });
             }
 
             @Override

@@ -16,7 +16,7 @@ public class Document {
     private String url;
     private LocalDateTime uploadDate;
     private int teamId;
-    private int hackathonId; // FIX: Campo precedentemente mancante
+    private int hackathonId;
 
     /**
      * Costruttore vuoto, necessario per le istanziazioni tramite reflection

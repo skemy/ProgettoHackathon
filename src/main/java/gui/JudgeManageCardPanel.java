@@ -14,6 +14,7 @@ import javax.swing.*;
 import javax.swing.plaf.FontUIResource;
 import javax.swing.text.StyleContext;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.SQLException;
@@ -47,7 +48,6 @@ import java.util.logging.Logger;
  */
 public class JudgeManageCardPanel {
 
-    // Logger statico per risolvere SonarQube S106 (Replace System.err)
     private static final Logger LOGGER = Logger.getLogger(JudgeManageCardPanel.class.getName());
 
     private static final String FONT_FAMILY = "SansSerif";
@@ -193,11 +193,11 @@ public class JudgeManageCardPanel {
      * e il testo a bianco. In modalità inattiva: ripristina i colori originali.
      * </p>
      *
-     * @param card Il pannello della card da aggiornare.
-     * @param name L'etichetta del nome del team.
+     * @param card    Il pannello della card da aggiornare.
+     * @param name    L'etichetta del nome del team.
      * @param details L'etichetta dei dettagli (numero membri e documenti).
-     * @param icon L'etichetta dell'icona d'azione.
-     * @param active true per attivare lo stile hover, false per disattivarlo.
+     * @param icon    L'etichetta dell'icona d'azione.
+     * @param active  true per attivare lo stile hover, false per disattivarlo.
      */
     private void updateCardStyle(JPanel card, JLabel name, JLabel details, JLabel icon, boolean active) {
         card.setBackground(active ? UIColors.CARMINE_RED : Color.WHITE);
@@ -217,7 +217,7 @@ public class JudgeManageCardPanel {
      * </ul>
      * </p>
      *
-     * @param t L'oggetto Team da valutare.
+     * @param t    L'oggetto Team da valutare.
      * @param docs La lista dei documenti caricati dal team.
      */
     private void openTeamDetailsDialog(Team t, List<Document> docs) {
@@ -250,7 +250,7 @@ public class JudgeManageCardPanel {
      * </p>
      *
      * @param container Il pannello contenitore dove aggiungere i pulsanti.
-     * @param docs La lista dei documenti da visualizzare.
+     * @param docs      La lista dei documenti da visualizzare.
      */
     private void populateDocumentButtons(JPanel container, List<Document> docs) {
         if (docs.isEmpty()) {
@@ -284,12 +284,32 @@ public class JudgeManageCardPanel {
             logErrorFallback("Feedback load error");
         }
 
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JLabel linkLabel = new JLabel("<html>URL: <a href=''>" + d.getUrl() + "</a></html>");
+        linkLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        linkLabel.setToolTipText("Click on the link");
+
+        linkLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                StringSelection selection = new StringSelection(d.getUrl());
+                Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
+                JOptionPane.showMessageDialog(rootPanel, "Link copied to clipboard!");
+            }
+        });
+
+        panel.add(linkLabel);
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(new JLabel("Your Feedback:"));
+
         JTextArea commentArea = new JTextArea(existingComment, 8, 40);
         commentArea.setLineWrap(true);
         commentArea.setWrapStyleWord(true);
+        panel.add(new JScrollPane(commentArea));
 
-        int result = JOptionPane.showConfirmDialog(rootPanel, new JScrollPane(commentArea),
-                "Feedback: " + d.getName(), JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        int result = JOptionPane.showConfirmDialog(rootPanel, panel,
+                "Evaluation: " + d.getName(), JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
 
         if (result == JOptionPane.OK_OPTION) {
             try {
@@ -356,10 +376,10 @@ public class JudgeManageCardPanel {
      * in caso di input non valido o errori di database.
      * </p>
      *
-     * @param t L'oggetto Team a cui assegnare il voto.
+     * @param t     L'oggetto Team a cui assegnare il voto.
      * @param input La stringa contenente il voto inserito dall'utente.
      * @throws NumberFormatException Se l'input non è un numero valido tra 0 e 10.
-     * @throws SQLException Gestita internamente con logging tramite logErrorFallback.
+     * @throws SQLException          Gestita internamente con logging tramite logErrorFallback.
      */
     private void processVoteInput(Team t, String input) {
         if (input == null) return;

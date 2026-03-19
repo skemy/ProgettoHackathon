@@ -19,6 +19,6 @@ public class CannotRegisterToEventException extends Exception {
      * * @param message Il messaggio specifico che verrà poi catturato e mostrato dalla GUI.
      */
     public CannotRegisterToEventException(String message) {
-        super(message); // Passa il nostro messaggio personalizzato alla superclasse Exception
+        super(message);
     }
 }

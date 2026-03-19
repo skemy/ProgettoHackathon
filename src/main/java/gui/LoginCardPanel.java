@@ -111,14 +111,12 @@ public class LoginCardPanel {
         String password = new String(passwordField.getPassword());
 
         try {
-            // Chiamata al layer Control
             controller.loginUserAction(username, password);
             callMainFrame();
         } catch (BlankFieldException | UserNotFoundException ex) {
-            // Errori di business logic (es. campi vuoti o utente errato)
             showErrorDialog(ex.getMessage());
         } catch (SQLException ex) {
-            // FIX: Gestione dell'eccezione SQL propagata dai DAO
+
             showErrorDialog("Errore SQL Reale: " + ex.getMessage());
         }
     }

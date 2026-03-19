@@ -103,8 +103,8 @@ public class Hackathon {
     }
 
     public String getProblemDescription() { return problemDescription; }
-    public void setProblemDescription(String problemDescription) { this.problemDescription = problemDescription; } // Può essere nulla
-
+    public void setProblemDescription(String problemDescription) { this.problemDescription = problemDescription;
+    }
     // --- BUILDER PATTERN ---
 
     /**

@@ -58,7 +58,6 @@ public class HackathonDAOImpl implements HackathonDAO {
      */
     @Override
     public Hackathon getHackathonById(int id) throws SQLException {
-        // Specifico le colonne invece di usare SELECT * (Sonar S6905)
         String query = "SELECT hackathonId, title, location, startDate, endDate, registrationStartDate, " +
                 "registrationEndDate, maxParticipants, maxTeamSize, problemDescription " +
                 "FROM hackathon WHERE hackathonId = ?";

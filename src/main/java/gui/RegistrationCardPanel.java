@@ -249,7 +249,6 @@ public class RegistrationCardPanel {
         } catch (BlankFieldException | UsernameAlreadyTakenException | EmailAlreadyTakenException ex) {
             showErrorDialog(ex.getMessage());
         } catch (SQLException ex) {
-            // FIX: Cattura l'eccezione SQL propagata dal Controller
             showErrorDialog("Connection error: Unable to register user at this time.");
         }
     }

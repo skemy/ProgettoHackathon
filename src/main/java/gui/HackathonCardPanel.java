@@ -99,21 +99,6 @@ public class HackathonCardPanel {
     }
 
     /**
-     * Restituisce il testo HTML delle regole di ranking.
-     * Spiega i criteri utilizzati per ordinare i team nella classifica finale.
-     *
-     * @return Una stringa HTML formattata contenente i criteri di ranking.
-     */
-    private String getRankingRulesHtml() {
-        return "<html><div style='text-align: left; color: gray; font-size: 10px; margin-bottom: 5px; width: 100%;'>" +
-                "<b>Ranking Criteria:</b><br>" +
-                "1. Highest Average Score.<br>" +
-                "2. Total Documents Uploaded (Tie-breaker).<br>" +
-                "3. Alphabetical Order.<br>" +
-                "<i>Note: Teams without uploaded documents receive a score of 0.</i></div></html>";
-    }
-
-    /**
      * Aggiorna i dati mostrati a schermo recuperando lo stato attuale dell'Hackathon.
      * <p>
      * Carica il titolo dell'evento, i dettagli di overview (date, location, limiti),
@@ -123,7 +108,7 @@ public class HackathonCardPanel {
      *
      * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
      */
-    public void refreshData() { // Rimosso parametro inutilizzato (Sonar S1172)
+    public void refreshData() {
         try {
             Hackathon current = controller.getCurrentHackathon();
             if (current == null) {
@@ -238,15 +223,15 @@ public class HackathonCardPanel {
      */
     private void handleEditToggle() {
         if (!isEditingMode) {
-            // Entra in modalità modifica
+
             isEditingMode = true;
             problemStatementTextArea.setEditable(true);
             problemStatementTextArea.setBackground(Color.WHITE);
             problemStatementTextArea.setOpaque(true);
             editLabel.setText("Save");
-            rEditPanel.setBackground(new Color(46, 204, 113)); // Verde
+            rEditPanel.setBackground(new Color(46, 204, 113));
         } else {
-            // Tenta di salvare le modifiche
+
             if (JOptionPane.showConfirmDialog(rootPanel, "Save new Problem Statement?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                 try {
                     if (controller.updateHackathonProblemAction(problemStatementTextArea.getText())) {
@@ -255,12 +240,11 @@ public class HackathonCardPanel {
                         JOptionPane.showMessageDialog(rootPanel, "Statement updated successfully!");
                     }
                 } catch (SQLException ex) {
-                    // Errore tecnico del database
                     JOptionPane.showMessageDialog(rootPanel, "Database error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 } catch (IllegalStateException ex) {
-                    // ERRORE DI LOGICA (Evento terminato) - Ora gestito correttamente!
+
                     JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Action Denied", JOptionPane.WARNING_MESSAGE);
-                    disableEditingUI(); // Esci dalla modalità edit poiché non permessa
+                    disableEditingUI();
                 }
             }
         }
@@ -293,9 +277,6 @@ public class HackathonCardPanel {
      * @param isFinal true per mostrare la classifica finale, false per il ranking live.
      */
     private void loadRanking(boolean isFinal) {
-        JLabel rulesLabel = new JLabel(getRankingRulesHtml());
-        rulesLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        rankingListPanel.add(rulesLabel);
         rankingListPanel.add(Box.createVerticalStrut(10));
 
         try {
@@ -331,7 +312,6 @@ public class HackathonCardPanel {
         deadlineContentLabel.setText(h.getRegistrationEndDate().toLocalDate().toString());
         maxParticipantsContentLabel.setText(String.valueOf(h.getMaxParticipants()));
         maxTeamSizeContentLabel.setText(String.valueOf(h.getMaxTeamSize()));
-        // Gestione della SQLException per getOrganizerNameForHackathon
         organizerContentLabel.setText("@" + controller.getOrganizerNameForHackathon(h.getHackathonId()));
     }
 

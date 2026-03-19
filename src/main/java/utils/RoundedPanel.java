@@ -41,7 +41,7 @@ public class RoundedPanel extends JPanel {
         g2.setColor(getBackground());
         g2.fillRoundRect(0, 0, getWidth(), getHeight(), arcs.width, arcs.height);
 
-        // Bordo (solo se impostato)
+        // Bordo
         if (borderColor != null) {
             g2.setColor(borderColor);
             g2.setStroke(new BasicStroke(borderThickness));

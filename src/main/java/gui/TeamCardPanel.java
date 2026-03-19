@@ -57,15 +57,15 @@ public class TeamCardPanel {
     private static final String DB_ERROR_TITLE = "Database Error";
 
     private JPanel rootPanel;
-    private JLabel teamLabel; // Ripristinato per binding .form
+    private JLabel teamLabel;
     private JScrollPane scrollPanel;
     private JLabel infoLabel;
     private JLabel createTeamLabel;
     private JLabel joinTeamLabel;
     private JPanel rJoinTeamPanel;
     private JPanel rCreateTeamPanel;
-    private JLabel membersLabel; // Ripristinato per binding .form
-    private JLabel uploadsLabel; // Ripristinato per binding .form
+    private JLabel membersLabel;
+    private JLabel uploadsLabel;
     private JLabel addLabel;
     private JPanel rAddPanel;
     private JLabel uploadsInfoLabel;
@@ -73,8 +73,7 @@ public class TeamCardPanel {
     private JPanel membersListPanel;
     private JPanel uploadsListPanel;
     private JLabel accessCodeLabel;
-    private JPanel membersInfoJPanel; // Ripristinato per binding .form
-
+    private JPanel membersInfoJPanel;
     private final Controller controller;
 
     /**
@@ -222,17 +221,14 @@ public class TeamCardPanel {
             @Override
             public void mousePressed(MouseEvent e) {
                 try {
-                    // 1. Chiediamo al Controller se possiamo procedere
                     controller.validateTeamManagementAccess();
 
-                    // 2. Se non lancia eccezioni, procediamo con la GUI
                     String name = JOptionPane.showInputDialog(rootPanel, "Team Name", "New Team", JOptionPane.PLAIN_MESSAGE);
                     if (name != null && !name.trim().isEmpty()) {
                         controller.createTeamAction(name.trim());
                         refreshData();
                     }
                 } catch (IllegalStateException ex) {
-                    // 3. Catturiamo il divieto polimorfico e lo mostriamo!
                     JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
                 } catch (SQLException ex) {
                     JOptionPane.showMessageDialog(rootPanel, "Creation error: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
@@ -288,7 +284,6 @@ public class TeamCardPanel {
                 } catch (IllegalStateException ex) {
                     JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
                 } catch (IllegalArgumentException ex) {
-                    // NUOVO: Cattura l'errore di TEAM PIENO e CODICE ERRATO
                     JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Action Denied", JOptionPane.WARNING_MESSAGE);
                 } catch (SQLException ex) {
                     JOptionPane.showMessageDialog(rootPanel, "Server error: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);

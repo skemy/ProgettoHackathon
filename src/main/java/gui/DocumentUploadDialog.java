@@ -99,7 +99,6 @@ public class DocumentUploadDialog extends JDialog {
         }
 
         try {
-            // Delega l'azione al Controller (Layer Control)
             controller.addDocumentAction(name, url);
 
             LOGGER.log(Level.INFO, "User initiated document upload: {0}", name);
@@ -111,7 +110,6 @@ public class DocumentUploadDialog extends JDialog {
             LOGGER.log(Level.WARNING, "Upload blocked by controller: {0}", ex.getMessage());
             JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
-            // Gestione errori imprevisti o SQL propagati dai DAO
             LOGGER.log(Level.SEVERE, "Unexpected error during document upload", ex);
             JOptionPane.showMessageDialog(rootPanel, "An error occurred while uploading. Please try again.", "System Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -134,7 +132,7 @@ public class DocumentUploadDialog extends JDialog {
     private void $$$setupUI$$$() {
         createUIComponents();
         rootPanel = new JPanel();
-        rootPanel.setLayout(new GridLayoutManager(6, 1, new Insets(20, 20, 20, 20), -1, -1));
+        rootPanel.setLayout(new GridLayoutManager(8, 1, new Insets(20, 20, 20, 20), -1, -1));
         rootPanel.setBackground(new Color(-1));
         final JLabel label1 = new JLabel();
         Font label1Font = this.$$$getFont$$$("SansSerif", Font.BOLD, 16, label1.getFont());
@@ -146,19 +144,25 @@ public class DocumentUploadDialog extends JDialog {
         nameField = new JTextField();
         nameField.setText("");
         nameField.setToolTipText("Es: Repository GitHub, Presentazione...");
-        rootPanel.add(nameField, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        rootPanel.add(nameField, new GridConstraints(3, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
         urlField = new JTextField();
         urlField.setToolTipText("https://...");
-        rootPanel.add(urlField, new GridConstraints(3, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        rootPanel.add(urlField, new GridConstraints(5, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
         final Spacer spacer2 = new Spacer();
-        rootPanel.add(spacer2, new GridConstraints(4, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        rootPanel.add(spacer2, new GridConstraints(6, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
         rUploadPanel.setLayout(new GridLayoutManager(1, 1, new Insets(10, 10, 10, 10), -1, -1));
-        rootPanel.add(rUploadPanel, new GridConstraints(5, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, new Dimension(-1, 40), null, 0, false));
+        rootPanel.add(rUploadPanel, new GridConstraints(7, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, new Dimension(-1, 40), null, 0, false));
         uploadLabel = new JLabel();
         Font uploadLabelFont = this.$$$getFont$$$(null, Font.BOLD, -1, uploadLabel.getFont());
         if (uploadLabelFont != null) uploadLabel.setFont(uploadLabelFont);
         uploadLabel.setText("Upload Document");
         rUploadPanel.add(uploadLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final JLabel label2 = new JLabel();
+        label2.setText("Upload Title:");
+        rootPanel.add(label2, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final JLabel label3 = new JLabel();
+        label3.setText("Upload URL:");
+        rootPanel.add(label3, new GridConstraints(4, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
     }
 
     /**

@@ -22,7 +22,6 @@ public class VoteDAOImpl implements VoteDAO {
 
     private static final Logger LOGGER = Logger.getLogger(VoteDAOImpl.class.getName());
 
-    // Costanti per la risoluzione dell'issue SonarQube S1192 (Duplicate Literals)
     private static final String TEAM_ID_COL = "teamId";
     private static final String SCORE_COL = "score";
     private static final String JUDGE_ID_COL = "judgeId";
@@ -48,7 +47,6 @@ public class VoteDAOImpl implements VoteDAO {
 
             boolean success = ps.executeUpdate() > 0;
             if (success) {
-                // Utilizzo dei placeholder per performance di logging (Sonar S3457)
                 LOGGER.log(Level.INFO, "Voto inserito: Judge {0} -> Team {1} (Score: {2})",
                         new Object[]{judgeId, teamId, score});
             }
@@ -119,8 +117,6 @@ public class VoteDAOImpl implements VoteDAO {
     @Override
     public List<String> getLeaderboard(int hackathonId) throws SQLException {
         List<String> ranking = new ArrayList<>();
-
-        // CORREZIONE: Aggiunto ::numeric per permettere a ROUND di funzionare con AVG di FLOAT
         String query = "SELECT t.teamName, " +
                 "COALESCE(ROUND(AVG(v.score)::numeric, 2), 0.00) AS final_score " +
                 "FROM team t LEFT JOIN vote v ON t.teamId = v.teamId " +
@@ -134,7 +130,6 @@ public class VoteDAOImpl implements VoteDAO {
             try (ResultSet rs = ps.executeQuery()) {
                 int rank = 1;
                 while (rs.next()) {
-                    // Utilizziamo getDouble o getFloat per leggere il valore decimale
                     ranking.add(rank++ + " Position: " + rs.getString("teamName") +
                             " - Average: " + rs.getDouble("final_score") + " / 10");
                 }
@@ -153,7 +148,6 @@ public class VoteDAOImpl implements VoteDAO {
     @Override
     public List<Vote> getVoteByTeam(int teamId) throws SQLException {
         List<Vote> votes = new ArrayList<>();
-        // FIX SonarQube: Elenco esplicito delle colonne invece di SELECT * (Sonar S6905)
         String query = "SELECT voteId, judgeId, teamId, score FROM vote WHERE teamId = ?";
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {

@@ -39,7 +39,6 @@ import java.util.Locale;
  */
 public class DashboardCardPanel {
 
-    // COSTANTE per risolvere SonarQube S1192 (Literal "Error" duplication)
     private static final String ERROR_TITLE = "Error";
 
     private JPanel rootPanel;
@@ -89,7 +88,7 @@ public class DashboardCardPanel {
             emailLabel.setText("E-mail: " + user.getEmail());
         }
 
-        updateEventList(); // Questo metodo gestisce internamente la SQLException
+        updateEventList();
     }
 
     /**
@@ -170,34 +169,56 @@ public class DashboardCardPanel {
         card.setBorderColor(UIColors.LIGHT_GRAY);
         card.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
         JLabel title = new JLabel(h.getTitle());
-        title.setFont(new Font("SansSerif", Font.BOLD, 16));
+        title.setFont(new Font("SansSerif", Font.BOLD, 18));
         title.setForeground(UIColors.NIGHT_BLUE);
 
-        JLabel details = new JLabel(String.format("📍 %s | 📅 %s - %s",
+        String orgName = "Loading...";
+        try {
+            orgName = controller.getOrganizerNameForHackathon(h.getHackathonId());
+        } catch (SQLException e) {
+            orgName = "Unknown";
+        }
+        JLabel organizer = new JLabel("👤 Organized by: @" + orgName);
+        organizer.setFont(new Font("SansSerif", Font.ITALIC, 12));
+        organizer.setForeground(Color.GRAY);
+        JLabel details = new JLabel(String.format("📍 %s | 📅 %s to %s",
                 h.getLocation(), h.getStartDate().toLocalDate(), h.getEndDate().toLocalDate()));
         details.setFont(new Font("SansSerif", Font.PLAIN, 13));
         details.setForeground(Color.DARK_GRAY);
 
+        JLabel regWindow = new JLabel(String.format("📝 Registration: %s - %s",
+                h.getRegistrationStartDate().toLocalDate(), h.getRegistrationEndDate().toLocalDate()));
+        regWindow.setFont(new Font("SansSerif", Font.BOLD, 12));
+        regWindow.setForeground(UIColors.CARMINE_RED);
+
+        JLabel capacity = new JLabel(String.format("👥 Max Participants: %d | 🛡️ Max Team Size: %d",
+                h.getMaxParticipants(), h.getMaxTeamSize()));
+        capacity.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        capacity.setForeground(new Color(46, 125, 50));
+
         card.add(title);
-        card.add(Box.createVerticalStrut(5));
+        card.add(organizer);
+        card.add(Box.createVerticalStrut(8));
         card.add(details);
+        card.add(regWindow);
+        card.add(Box.createVerticalStrut(5));
+        card.add(capacity);
 
         card.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 handleRegistration(h);
             }
-
             @Override
             public void mouseEntered(MouseEvent e) {
-                card.setBackground(new Color(245, 245, 245));
+                card.setBackground(new Color(250, 250, 250));
+                card.setBorderColor(UIColors.CARMINE_RED);
             }
-
             @Override
             public void mouseExited(MouseEvent e) {
                 card.setBackground(Color.WHITE);
+                card.setBorderColor(UIColors.LIGHT_GRAY);
             }
         });
 
@@ -275,11 +296,9 @@ public class DashboardCardPanel {
         JTextField startF = new JTextField(LocalDate.now().plusDays(7).toString());
         JTextField endF = new JTextField(LocalDate.now().plusDays(8).toString());
 
-        // 1. Aggiungiamo i due nuovi campi di input, con dei valori di default suggeriti
         JTextField maxParticipantsF = new JTextField("100");
         JTextField maxTeamSizeF = new JTextField("5");
 
-        // 2. Aggiungiamo i campi all'array dei messaggi del JOptionPane
         Object[] message = {
                 "Title:", titleF,
                 "Location:", locF,
@@ -293,17 +312,13 @@ public class DashboardCardPanel {
 
         if (option == JOptionPane.OK_OPTION) {
             try {
-                // 3. Estraiamo i numeri digitati dall'utente e li convertiamo in interi
                 int maxP = Integer.parseInt(maxParticipantsF.getText().trim());
                 int maxT = Integer.parseInt(maxTeamSizeF.getText().trim());
-
-                // Opzionale: un controllo rapido lato GUI per evitare chiamate inutili al Controller
                 if (maxP <= 0 || maxT <= 0) {
                     JOptionPane.showMessageDialog(rootPanel, "Limits must be greater than zero.", ERROR_TITLE, JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                // 4. Passiamo i valori dinamici (maxP, maxT) al Controller invece dei numeri magici!
                 controller.createHackathonAction(
                         titleF.getText(),
                         locF.getText(),

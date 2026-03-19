@@ -24,7 +24,6 @@ public class TeamDAOImpl implements TeamDAO {
 
     private static final Logger LOGGER = Logger.getLogger(TeamDAOImpl.class.getName());
 
-    // Costanti per la risoluzione dell'issue SonarQube S1192 (Duplicate Literals)
     private static final String TEAM_ID_COL = "teamId";
     private static final String HACKATHON_ID_COL = "hackathonId";
 

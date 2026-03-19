@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
-// Ciao carmine 
+
 
 /**
  * Orchestratore centrale del sistema (Layer Control nel pattern BCE - Boundary Control Entity).
@@ -193,12 +193,12 @@ public class Controller {
     public void joinHackathonAction(int hackathonId) throws CannotRegisterToEventException, SQLException {
         Hackathon target = hackathonDAO.getHackathonById(hackathonId);
 
-        // 1. Controllo Temporale (Evento chiuso)
+        // Controllo Temporale (Evento chiuso)
         if (target != null && LocalDateTime.now().isAfter(target.getStartDate())) {
             throw new CannotRegisterToEventException("The event is already closed for registrations.");
         }
 
-        // 2. Controllo dei Ruoli (Organizer, Judge, Participant)
+        // Controllo dei Ruoli (Organizer, Judge, Participant)
         if (!loggedInUser.getClass().equals(User.class)) {
             if (loggedInUser instanceof Organizer) {
                 throw new CannotRegisterToEventException("You are an organizer of an event. You can't participate to another Hackathon.");
@@ -207,7 +207,7 @@ public class Controller {
             }
         }
 
-        // 3. Controllo Limbo (Utente base già iscritto altrove)
+        // Controllo Limbo (Utente base già iscritto altrove)
         if (userDAO.getRegisteredHackathonId(loggedInUser.getUserId()) > 0) {
             throw new CannotRegisterToEventException("You are already registered to another hackathon.");
         }
@@ -383,7 +383,6 @@ public class Controller {
      */
     public void addDocumentAction(String name, String url) throws SQLException {
         ensureHackathonIsActive();
-        // NOTA: Qui instanceof va bene perché è un controllo di autorizzazione (ruolo), non estrazione dati!
         if (!(loggedInUser instanceof Participant p)) throw new IllegalStateException("Only participants can upload projects.");
         documentDAO.uploadDocument(new Document(0, name, url, LocalDateTime.now(), p.getTeamId(), resolveCurrentHackathonId()));
     }

@@ -50,7 +50,7 @@ public class OrganizerManageCardPanel {
     private JLabel manageLabel;
     private JLabel infoLabel;
     private JLabel participantsLabel;
-    private JLabel participantsInfoLabel; // Ripristinato per binding .form
+    private JLabel participantsInfoLabel;
     private JScrollPane scrollPanel;
     private JScrollPane participantsListScrollPanel;
     private JPanel participantsListPanel;

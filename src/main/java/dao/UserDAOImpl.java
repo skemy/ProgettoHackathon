@@ -21,7 +21,6 @@ public class UserDAOImpl implements UserDAO {
 
     private static final Logger LOGGER = Logger.getLogger(UserDAOImpl.class.getName());
 
-    // Costanti per la risoluzione dell'issue SonarQube S1192 (Duplicate Literals)
     private static final String USER_ID_COL = "userId";
     private static final String NAME_COL = "name";
     private static final String EMAIL_COL = "email";
@@ -55,7 +54,6 @@ public class UserDAOImpl implements UserDAO {
      */
     @Override
     public User checkLogin(String loginInput, String password) throws SQLException {
-        // Query esplicita senza l'uso di SELECT *
         String queryBase = "SELECT userId, name, email, password FROM users " +
                 "WHERE (email = ? OR name = ?) AND password = ?";
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();

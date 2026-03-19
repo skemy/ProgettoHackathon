@@ -92,7 +92,7 @@ public class Team {
      * * @param accessCode Il codice da assegnare.
      */
     public void setAccessCode(String accessCode) {
-        this.accessCode = accessCode; // Nessuna eccezione qui, il codice potrebbe venire generato o assegnato a posteriori
+        this.accessCode = accessCode;
     }
 
     /**

@@ -14,13 +14,11 @@ public class ConnessioneDatabase {
 	public Connection connection = null;
 
 	private String nome = "postgres";
-	private String password = "060705"; // La tua password
+	private String password = "060705";
 
-	// CORREZIONE 1: Nome database corretto 'progetto_hackathon'
 	private String url = "jdbc:postgresql://localhost:5432/HackathonDB";
 	private String driver = "org.postgresql.Driver";
 
-	// COSTRUTTORE
 	private ConnessioneDatabase() throws SQLException {
 		try {
 			Class.forName(driver);
@@ -50,7 +48,6 @@ public class ConnessioneDatabase {
 		return instance;
 	}
 
-	// CORREZIONE 2: Il metodo che mancava e che il DAO sta cercando!
 	/**
 	 * Restituisce l'oggetto Connection per eseguire query sul database.
 	 * @return L'oggetto Connection attivo.
