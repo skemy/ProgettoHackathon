@@ -192,13 +192,27 @@ public class Controller {
      */
     public void joinHackathonAction(int hackathonId) throws CannotRegisterToEventException, SQLException {
         Hackathon target = hackathonDAO.getHackathonById(hackathonId);
+
+        // 1. Controllo Temporale (Evento chiuso)
         if (target != null && LocalDateTime.now().isAfter(target.getStartDate())) {
-            throw new CannotRegisterToEventException();
+            throw new CannotRegisterToEventException("The event is already closed for registrations.");
         }
 
-        if (!loggedInUser.getClass().equals(User.class)) throw new CannotRegisterToEventException();
-        if (userDAO.getRegisteredHackathonId(loggedInUser.getUserId()) > 0) throw new CannotRegisterToEventException();
+        // 2. Controllo dei Ruoli (Organizer, Judge, Participant)
+        if (!loggedInUser.getClass().equals(User.class)) {
+            if (loggedInUser instanceof Organizer) {
+                throw new CannotRegisterToEventException("You are an organizer of an event. You can't participate to another Hackathon.");
+            } else {
+                throw new CannotRegisterToEventException("You already have an active role in another event.");
+            }
+        }
 
+        // 3. Controllo Limbo (Utente base già iscritto altrove)
+        if (userDAO.getRegisteredHackathonId(loggedInUser.getUserId()) > 0) {
+            throw new CannotRegisterToEventException("You are already registered to another hackathon.");
+        }
+
+        // Se passa tutti i controlli, esegue l'iscrizione
         userDAO.registerUserToHackathon(loggedInUser.getUserId(), hackathonId);
     }
 
@@ -317,13 +331,44 @@ public class Controller {
      * @throws SQLException Se si fallisce il collegamento o la cancellazione dal limbo.
      * @throws IllegalArgumentException Se il codice inserito non corrisponde a nessun team attivo.
      */
+    /**
+     * Associa un utente in stato "limbo" a un team preesistente utilizzando un codice segreto.
+     * @param accessCode Il codice invito rilasciato dal fondatore del team.
+     * @throws SQLException Se si fallisce il collegamento o la cancellazione dal limbo.
+     * @throws IllegalArgumentException Se il codice non corrisponde o se il team è pieno.
+     */
+    /**
+     * Associa un utente in stato "limbo" a un team preesistente utilizzando un codice segreto.
+     * @param accessCode Il codice invito rilasciato dal fondatore del team.
+     * @throws SQLException Se si fallisce il collegamento o la cancellazione dal limbo.
+     * @throws IllegalArgumentException Se il codice non è valido o se il team è pieno.
+     */
     public void joinTeamAction(String accessCode) throws SQLException {
         ensureHackathonIsActive();
-        int teamId = teamDAO.getTeamIdByCode(accessCode);
-        if (teamId <= 0) throw new IllegalArgumentException("Incorrect code.");
 
+        int teamId = teamDAO.getTeamIdByCode(accessCode);
+
+        if (teamId <= 0) {
+            throw new IllegalArgumentException("Invalid Code");
+        }
+        int teamHid = teamDAO.getHackathonIdByTeam(teamId);
+        Hackathon targetHackathon = hackathonDAO.getHackathonById(teamHid);
+
+        if (targetHackathon != null) {
+            int maxSize = targetHackathon.getMaxTeamSize();
+            int currentMembers = teamDAO.getTeamMembers(teamId).size();
+            if (currentMembers >= maxSize) {
+                throw new IllegalArgumentException("The team is full! Maximum capacity is " + maxSize + " members.");
+            }
+        }
+
+        int registeredHid = userDAO.getRegisteredHackathonId(loggedInUser.getUserId());
         teamDAO.linkUserToTeam(loggedInUser.getUserId(), teamId);
-        userDAO.removeFromLimbo(loggedInUser.getUserId(), userDAO.getRegisteredHackathonId(loggedInUser.getUserId()));
+
+        // Rimuove l'utente dal limbo
+        userDAO.removeFromLimbo(loggedInUser.getUserId(), registeredHid);
+
+        // Aggiorna la sessione (l'utente diventa Participant)
         this.loggedInUser = resolveActualUserRole(loggedInUser);
     }
 
@@ -363,7 +408,7 @@ public class Controller {
      * @return true se l'inserimento va a buon fine.
      * @throws SQLException Se si viola qualche constraint sul database.
      */
-    public boolean voteTeamAction(int teamId, int score) throws SQLException {
+    public boolean voteTeamAction(int teamId, float score) throws SQLException {
         ensureHackathonIsActive();
         return voteDAO.insertVote(loggedInUser.getUserId(), teamId, score);
     }

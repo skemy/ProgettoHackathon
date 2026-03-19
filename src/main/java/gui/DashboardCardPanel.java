@@ -299,7 +299,7 @@ public class DashboardCardPanel {
 
                 // Opzionale: un controllo rapido lato GUI per evitare chiamate inutili al Controller
                 if (maxP <= 0 || maxT <= 0) {
-                    JOptionPane.showMessageDialog(rootPanel, "I limiti devono essere maggiori di zero.", ERROR_TITLE, JOptionPane.WARNING_MESSAGE);
+                    JOptionPane.showMessageDialog(rootPanel, "Limits must be greater than zero.", ERROR_TITLE, JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
@@ -317,8 +317,7 @@ public class DashboardCardPanel {
                 refreshData();
 
             } catch (NumberFormatException ex) {
-                // 5. Gestiamo il caso in cui l'utente scriva "Cento" al posto di "100"
-                JOptionPane.showMessageDialog(rootPanel, "Max Participants e Max Team Size devono essere numeri validi.", ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(rootPanel, "Max Participants and Max Team Size must be valid numbers.", ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
             } catch (DateTimeParseException ex) {
                 JOptionPane.showMessageDialog(rootPanel, "Invalid date format.", ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
             } catch (SQLException ex) {

@@ -53,8 +53,8 @@ import java.util.Locale;
  */
 @SuppressWarnings("java:S1450")
 public class TeamCardPanel {
-    private static final String ACCESS_DENIED = "Accesso Negato";
-    private static final String DB_ERROR_TITLE = "Errore Database";
+    private static final String ACCESS_DENIED = "Access denied";
+    private static final String DB_ERROR_TITLE = "Database Error";
 
     private JPanel rootPanel;
     private JLabel teamLabel; // Ripristinato per binding .form
@@ -122,7 +122,7 @@ public class TeamCardPanel {
                 setupUIForLimboUser();
             }
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(rootPanel, "Errore nel recupero dei dati team: " + e.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(rootPanel, "Error retrieving team data: " + e.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
         }
 
         rootPanel.revalidate();
@@ -142,7 +142,7 @@ public class TeamCardPanel {
         Team myTeam = controller.getMyTeam();
         if (myTeam != null) {
             infoLabel.setText("Team: " + myTeam.getTeamName());
-            accessCodeLabel.setText("Codice: " + myTeam.getAccessCode());
+            accessCodeLabel.setText("Code: " + myTeam.getAccessCode());
             accessCodeLabel.setVisible(true);
         }
 
@@ -159,7 +159,7 @@ public class TeamCardPanel {
      * </p>
      */
     private void setupUIForLimboUser() {
-        infoLabel.setText("Non sei ancora in un team.");
+        infoLabel.setText("You are not in a team yet");
         accessCodeLabel.setVisible(false);
         toggleControlsVisibility(true);
         membersListPanel.removeAll();
@@ -266,6 +266,13 @@ public class TeamCardPanel {
      * </ul>
      * </p>
      */
+    /**
+     * Configura il listener per il pulsante "Join Team".
+     * <p>
+     * Valida i permessi dell'utente, mostra un dialogo di input per il codice di accesso,
+     * e aggiunge l'utente al team se il codice è valido e c'è spazio.
+     * </p>
+     */
     private void setupJoinTeamListener() {
         rJoinTeamPanel.addMouseListener(new MouseAdapter() {
             @Override
@@ -280,8 +287,11 @@ public class TeamCardPanel {
                     }
                 } catch (IllegalStateException ex) {
                     JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
+                } catch (IllegalArgumentException ex) {
+                    // NUOVO: Cattura l'errore di TEAM PIENO e CODICE ERRATO
+                    JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Action Denied", JOptionPane.WARNING_MESSAGE);
                 } catch (SQLException ex) {
-                    JOptionPane.showMessageDialog(rootPanel, "Incorrect code or server error: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(rootPanel, "Server error: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
@@ -339,7 +349,7 @@ public class TeamCardPanel {
                         StringSelection ss = new StringSelection(code);
                         Toolkit.getDefaultToolkit().getSystemClipboard().setContents(ss, ss);
                         String oldText = accessCodeLabel.getText();
-                        accessCodeLabel.setText("Copiato!");
+                        accessCodeLabel.setText("copied!");
                         new Timer(1000, ev -> accessCodeLabel.setText(oldText)).start();
                     }
                 } catch (SQLException ex) {
@@ -364,7 +374,7 @@ public class TeamCardPanel {
             JPanel card = new JPanel(new FlowLayout(FlowLayout.LEFT));
             card.setBackground(Color.WHITE);
             card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
-            card.add(new JLabel("Utente: " + m.getName() + " (" + m.getEmail() + ")"));
+            card.add(new JLabel("User: " + m.getName() + " (" + m.getEmail() + ")"));
             membersListPanel.add(card);
         }
     }
@@ -390,7 +400,7 @@ public class TeamCardPanel {
             card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
             card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-            card.add(new JLabel("Progetto: " + d.getName()), BorderLayout.CENTER);
+            card.add(new JLabel("Project: " + d.getName()), BorderLayout.CENTER);
             card.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -417,13 +427,13 @@ public class TeamCardPanel {
         try {
             List<Feedback> feedbacks = controller.getDocumentFeedbacks(d.getDocumentId());
             StringBuilder html = new StringBuilder("<html><body style='font-family: sans-serif; padding: 10px; width: 350px;'>");
-            html.append("<h2 style='color: #D32F2F;'>Feedback Giudici:</h2>");
+            html.append("<h2 style='color: #D32F2F;'>Judges' Feedback:</h2>");
 
             if (feedbacks.isEmpty()) {
-                html.append("<p>Nessun commento disponibile.</p>");
+                html.append("<p>No comments available.</p>");
             } else {
                 for (Feedback f : feedbacks) {
-                    html.append("<h4 style='color: #1A237E;'>Giudice: ").append(f.getJudgeName()).append("</h4>");
+                    html.append("<h4 style='color: #1A237E;'>Judge: ").append(f.getJudgeName()).append("</h4>");
                     html.append("<p><i>").append(f.getComment().replace("\n", "<br>")).append("</i></p><hr>");
                 }
             }
@@ -432,9 +442,9 @@ public class TeamCardPanel {
             JEditorPane pane = new JEditorPane("text/html", html.toString());
             pane.setEditable(false);
             pane.setOpaque(false);
-            JOptionPane.showMessageDialog(rootPanel, new JScrollPane(pane), "Storico Feedback", JOptionPane.PLAIN_MESSAGE);
+            JOptionPane.showMessageDialog(rootPanel, new JScrollPane(pane), "All Feedback", JOptionPane.PLAIN_MESSAGE);
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(rootPanel, "Errore nel caricamento feedback.", DB_ERROR_TITLE, JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(rootPanel, "Error loading feedback.", DB_ERROR_TITLE, JOptionPane.WARNING_MESSAGE);
         }
     }
 

@@ -37,14 +37,14 @@ public class VoteDAOImpl implements VoteDAO {
      * @throws SQLException In caso di errore durante l'operazione di INSERT.
      */
     @Override
-    public boolean insertVote(int judgeId, int teamId, int score) throws SQLException {
+    public boolean insertVote(int judgeId, int teamId, float score) throws SQLException {
         String query = "INSERT INTO vote (judgeId, teamId, score) VALUES (?, ?, ?)";
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
 
             ps.setInt(1, judgeId);
             ps.setInt(2, teamId);
-            ps.setInt(3, score);
+            ps.setFloat(3, score);
 
             boolean success = ps.executeUpdate() > 0;
             if (success) {
@@ -119,9 +119,10 @@ public class VoteDAOImpl implements VoteDAO {
     @Override
     public List<String> getLeaderboard(int hackathonId) throws SQLException {
         List<String> ranking = new ArrayList<>();
-        // Query ottimizzata con JOIN e GROUP BY
+
+        // CORREZIONE: Aggiunto ::numeric per permettere a ROUND di funzionare con AVG di FLOAT
         String query = "SELECT t.teamName, " +
-                "COALESCE(ROUND(AVG(v.score), 2), 0.00) AS final_score " +
+                "COALESCE(ROUND(AVG(v.score)::numeric, 2), 0.00) AS final_score " +
                 "FROM team t LEFT JOIN vote v ON t.teamId = v.teamId " +
                 "WHERE t.hackathonId = ? " +
                 "GROUP BY t.teamId, t.teamName " +
@@ -133,6 +134,7 @@ public class VoteDAOImpl implements VoteDAO {
             try (ResultSet rs = ps.executeQuery()) {
                 int rank = 1;
                 while (rs.next()) {
+                    // Utilizziamo getDouble o getFloat per leggere il valore decimale
                     ranking.add(rank++ + " Position: " + rs.getString("teamName") +
                             " - Average: " + rs.getDouble("final_score") + " / 10");
                 }

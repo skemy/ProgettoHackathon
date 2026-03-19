@@ -210,8 +210,8 @@ public class MainFrame extends JFrame {
     private void checkKickedStatus() {
         if (controller.wasRecentlyKicked()) {
             JOptionPane.showMessageDialog(this,
-                    "L'evento è iniziato e non avevi un team. L'iscrizione è stata annullata.",
-                    "Registrazione Scaduta", JOptionPane.WARNING_MESSAGE);
+                    "The event started and you didn't have a team. Your registration has been canceled.",
+                    "Registration Expired", JOptionPane.WARNING_MESSAGE);
             controller.resetKickedFlag();
         }
     }
@@ -243,13 +243,13 @@ public class MainFrame extends JFrame {
             public void mousePressed(MouseEvent e) {
                 try {
                     if (controller.getCurrentHackathon() == null) {
-                        JOptionPane.showMessageDialog(MainFrame.this, "Iscriviti prima a un Hackathon!", "Accesso Negato", JOptionPane.WARNING_MESSAGE);
+                        JOptionPane.showMessageDialog(MainFrame.this, "Sign up for a Hackathon first!", "Access denied", JOptionPane.WARNING_MESSAGE);
                         return;
                     }
                     teamCard.refreshData();
                     cardLayout.show(cardPanel, "team");
                 } catch (SQLException ex) {
-                    JOptionPane.showMessageDialog(MainFrame.this, "Errore connessione: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(MainFrame.this, "Connection error: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                 }
             }
 

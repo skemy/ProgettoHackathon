@@ -17,7 +17,7 @@ public interface VoteDAO {
      * @return true se l'inserimento ha avuto successo.
      * @throws SQLException In caso di errore nel database.
      */
-    boolean insertVote(int judgeId, int teamId, int score) throws SQLException;
+    boolean insertVote(int judgeId, int teamId, float score) throws SQLException;
 
     /**
      * Verifica se un giudice ha già votato per un determinato team.

@@ -364,7 +364,7 @@ public class JudgeManageCardPanel {
     private void processVoteInput(Team t, String input) {
         if (input == null) return;
         try {
-            int score = Integer.parseInt(input);
+            float score = Float.parseFloat(input);
             if (score < 0 || score > 10) throw new NumberFormatException();
 
             if (controller.voteTeamAction(t.getTeamId(), score)) {
@@ -372,7 +372,7 @@ public class JudgeManageCardPanel {
                 refreshData();
             }
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(rootPanel, "Enter a number between 0 and 10.");
+            JOptionPane.showMessageDialog(rootPanel, "Enter a number between 0 and 10");
         } catch (SQLException ex) {
             logErrorFallback("Error saving vote: " + ex.getMessage());
         }
