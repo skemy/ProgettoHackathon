@@ -230,6 +230,8 @@ public class TeamCardPanel {
                     }
                 } catch (IllegalStateException ex) {
                     JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), ACCESS_DENIED, JOptionPane.WARNING_MESSAGE);
+                } catch (IllegalArgumentException ex) {
+                    JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Creation Error", JOptionPane.ERROR_MESSAGE);
                 } catch (SQLException ex) {
                     JOptionPane.showMessageDialog(rootPanel, "Creation error: " + ex.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
                 }

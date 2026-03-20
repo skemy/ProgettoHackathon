@@ -37,7 +37,7 @@ public class TeamDAOImpl implements TeamDAO {
      */
     @Override
     public int createTeamAndReturnId(Team team) throws SQLException {
-        // Generazione codice di accesso alfanumerico univoco
+        // Codice di accesso alfanumerico univoco
         String generatedCode = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         team.setAccessCode(generatedCode);
 
