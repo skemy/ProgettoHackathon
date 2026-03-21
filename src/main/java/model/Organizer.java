@@ -1,5 +1,7 @@
 package model;
 
+import exceptions.BlankFieldException;
+
 /**
  * Rappresenta l'entità di dominio Organizzatore (Organizer).
  * Estende la classe {@link User} per includere le responsabilità specifiche

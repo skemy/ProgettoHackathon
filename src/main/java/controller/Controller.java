@@ -26,9 +26,6 @@ public class Controller {
     /** Logger per tracciare eventi critici, preferito al System.out per una gestione professionale degli stream di log. */
     private static final Logger LOGGER = Logger.getLogger(Controller.class.getName());
 
-    /* * Riferimenti alle interfacce DAO. L'uso delle interfacce (invece delle classi concrete)
-     * garantisce un basso accoppiamento e facilita futuri refactoring o l'introduzione di Mock per i test.
-     */
     private final HackathonDAO hackathonDAO;
     private final UserDAO userDAO;
     private final TeamDAO teamDAO;
@@ -70,15 +67,19 @@ public class Controller {
      * * @throws SQLException Se si verifica un errore durante il recupero dell'hackathon.
      * @throws IllegalStateException Se nessun hackathon è attivo o se l'evento è già terminato.
      */
+    /* TODO: In produzione, aggiungere now.isBefore(current.getStartDate())
+    *  per impedire azioni pre-evento. Mantenuto permissivo per scopi di demo/test.
+    */
+
     private void ensureHackathonIsActive() throws SQLException {
         Hackathon current = getCurrentHackathon();
         if (current == null) {
-            throw new IllegalStateException("Nessun hackathon attivo trovato per questa operazione.");
+            throw new IllegalStateException("No active hackathons found for this operation.");
         }
 
         if (LocalDateTime.now().isAfter(current.getEndDate())) {
-            throw new IllegalStateException("L'evento è terminato il " +
-                    current.getEndDate().toLocalDate() + ". Il sistema è ora in modalità sola lettura.");
+            throw new IllegalStateException("The event ended on " +
+                    current.getEndDate().toLocalDate() + ". The system is now in read-only mode.");
         }
     }
 
@@ -111,7 +112,7 @@ public class Controller {
      * @throws UserNotFoundException Se le credenziali non trovano riscontro.
      * @throws SQLException In caso di errori di comunicazione con il database.
      */
-    public void loginUserAction(String name, String password) throws BlankFieldException, UserNotFoundException, SQLException {
+    public void loginUserAction(String name, String password) throws UserNotFoundException, SQLException {
         if (name == null || name.trim().isEmpty() || password == null || password.trim().isEmpty()) {
             throw new BlankFieldException("Username and Password are required!");
         }
@@ -163,7 +164,7 @@ public class Controller {
      * @throws SQLException Per errori legati al DB.
      */
     public void registerUserAction(String username, String email, String password)
-            throws BlankFieldException, UsernameAlreadyTakenException, EmailAlreadyTakenException, SQLException {
+            throws UsernameAlreadyTakenException, EmailAlreadyTakenException, SQLException {
         if (username == null || email == null || password == null) throw new BlankFieldException("Mandatory fields missing.");
         if (userDAO.isUsernameAlreadyRegistered(username)) throw new UsernameAlreadyTakenException("Username used.");
         if (userDAO.isEmailAlreadyRegistered(email)) throw new EmailAlreadyTakenException("Email used.");
@@ -183,12 +184,22 @@ public class Controller {
     }
 
     /**
-     * Gestisce la pre-iscrizione (limbo) di un utente standard a un evento.
-     * Implementa i controlli sulle date per impedire l'iscrizione a eventi già iniziati
-     * e assicura che solo utenti "base" (senza altri ruoli) possano iscriversi.
-     * * @param hackathonId L'ID dell'hackathon a cui iscriversi.
-     * @throws CannotRegisterToEventException Se le condizioni temporali o di ruolo non sono rispettate.
-     * @throws SQLException In caso di errori SQL.
+     * Gestisce l'iscrizione di un utente a un hackathon, verificandone i requisiti di accesso.
+     * <p>
+     * Il metodo esegue una serie di controlli sequenziali:
+     * 1. Verifica che l'evento non sia già iniziato (controllo temporale).
+     * 2. Verifica che l'evento non abbia raggiunto il numero massimo di partecipanti
+     * consentito (Sold Out).
+     * 3. Verifica che l'utente non ricopra già ruoli attivi (Organizer, Judge, Participant)
+     * in altri eventi.
+     * 4. Verifica che l'utente non abbia già una registrazione pendente nel "limbo".
+     * </p>
+     *
+     * @param hackathonId L'identificativo univoco dell'hackathon a cui iscriversi.
+     * @throws CannotRegisterToEventException Se l'evento è iniziato, se è stato raggiunto il limite
+     * massimo di iscritti o se l'utente ha già un ruolo attivo.
+     * @throws SQLException In caso di errori durante l'interrogazione del database
+     * (es. conteggio partecipanti o recupero hackathon).
      */
     public void joinHackathonAction(int hackathonId) throws CannotRegisterToEventException, SQLException {
         Hackathon target = hackathonDAO.getHackathonById(hackathonId);
@@ -197,7 +208,14 @@ public class Controller {
         if (target != null && LocalDateTime.now().isAfter(target.getStartDate())) {
             throw new CannotRegisterToEventException("The event is already closed for registrations.");
         }
+        if (target != null) {
 
+            int currentTotalParticipants = userDAO.countTotalParticipantsByHackathon(hackathonId);
+            if (currentTotalParticipants >= target.getMaxParticipants()) {
+                throw new CannotRegisterToEventException("Sold Out! This hackathon reached the limit of " +
+                        target.getMaxParticipants() + " participants.");
+            }
+        }
         // Controllo dei Ruoli (Organizer, Judge, Participant)
         if (!loggedInUser.getClass().equals(User.class)) {
             if (loggedInUser instanceof Organizer) {
@@ -268,14 +286,14 @@ public class Controller {
      * @param maxT Limite massimo della grandezza team.
      * @throws SQLException In caso di fallimento della persistenza o dell'aggiornamento ruoli.
      */
-    public void createHackathonAction(String title, String location, LocalDate startDate, LocalDate endDate, int maxP, int maxT) throws SQLException {
+    public void createHackathonAction(String title, String location, LocalDate startDate, LocalDate endDate, int maxP, int maxT) throws SQLException, BlankFieldException{
         LocalDateTime start = startDate.atStartOfDay();
         LocalDateTime end = endDate.atTime(23, 59);
 
         Hackathon newEvent = new Hackathon.Builder()
                 .title(title).location(location)
                 .startDate(start).endDate(end)
-                .registrationStartDate(start.minusDays(30))
+                .registrationStartDate(start.minusDays(2))
                 .registrationEndDate(start.minusDays(1))
                 .maxParticipants(maxP).maxTeamSize(maxT).build();
 
@@ -310,7 +328,7 @@ public class Controller {
      * @throws IllegalStateException Se l'utente tenta di creare un team senza aver prima scelto un evento.
      * @throws IllegalArgumentException Se si verifica un errore anomalo durante la generazione dell'ID del team.
      */
-    public String createTeamAction(String teamName) throws SQLException {
+    public String createTeamAction(String teamName) throws SQLException,BlankFieldException {
         ensureHackathonIsActive();
         int hId = userDAO.getRegisteredHackathonId(loggedInUser.getUserId());
         if (hId <= 0) throw new IllegalStateException("Register for an event first.");
@@ -343,7 +361,7 @@ public class Controller {
      * @throws SQLException Se si fallisce il collegamento o la cancellazione dal limbo.
      * @throws IllegalArgumentException Se il codice non è valido o se il team è pieno.
      */
-    public void joinTeamAction(String accessCode) throws SQLException {
+    public void joinTeamAction(String accessCode) throws SQLException ,BlankFieldException{
         ensureHackathonIsActive();
 
         int teamId = teamDAO.getTeamIdByCode(accessCode);
@@ -439,7 +457,7 @@ public class Controller {
 
     /**
      * Calcola e recupera la classifica finale dell'hackathon.
-     * Per design, la classifica "finale" non viene mai rivelata prima della chiusura formale dell'evento
+     * Per design, la classifica "finale" non viene mai rivelata prima della chiusura formale dell'evento a tutti i partecipanti, ma resta possibile la visualizzazione all'organizzatore.
      * per evitare comportamenti strategici scorretti.
      * * @return Lista delle metriche/voti aggregati in formato stringa.
      * @throws SQLException In caso di problemi col modulo VoteDAO.
@@ -503,7 +521,7 @@ public class Controller {
      * @return Membri di un team specifico.
      * @throws SQLException Per errori di lettura.
      */
-    public List<Participant> getTeamMembers(int teamId) throws SQLException { return teamDAO.getTeamMembers(teamId); }
+    public List<Participant> getTeamMembers(int teamId) throws SQLException, BlankFieldException { return teamDAO.getTeamMembers(teamId); }
 
     /**
      * @param teamId ID del team in esame.
@@ -573,13 +591,11 @@ public class Controller {
      * @throws IllegalStateException se l'utente non ha i permessi.
      */
     public void validateTeamManagementAccess() throws IllegalStateException {
-        if (loggedInUser == null) throw new IllegalStateException("Utente non loggato.");
+        if (loggedInUser == null) throw new IllegalStateException("User not logged in.");
         String denialReason = loggedInUser.getTeamActionDenialReason();
         if (denialReason != null) {
             throw new IllegalStateException(denialReason);
         }
     }
-
-
 
 }

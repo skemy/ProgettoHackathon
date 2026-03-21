@@ -1,6 +1,7 @@
 package dao;
 
 import database.ConnessioneDatabase;
+import exceptions.BlankFieldException;
 import model.*;
 
 import java.sql.*;
@@ -69,16 +70,21 @@ public class UserDAOImpl implements UserDAO {
                     String name = rs.getString(NAME_COL);
                     String email = rs.getString(EMAIL_COL);
 
-                    if (isOrganizer(conn, id)) {
-                        return new Organizer(id, name, email, password, getHackathonIdForRole(conn, "organizer", id));
-                    } else if (isJudge(conn, id)) {
-                        return new Judge(id, name, email, password, getHackathonIdForRole(conn, "jury", id));
-                    } else if (isParticipant(conn, id)) {
-                        int tId = getTeamIdForParticipant(conn, id);
-                        int hId = getHackathonIdForTeam(conn, tId);
-                        return new Participant(id, name, email, password, tId, hId);
+                    try {
+                        if (isOrganizer(conn, id)) {
+                            return new Organizer(id, name, email, password, getHackathonIdForRole(conn, "organizer", id));
+                        } else if (isJudge(conn, id)) {
+                            return new Judge(id, name, email, password, getHackathonIdForRole(conn, "jury", id));
+                        } else if (isParticipant(conn, id)) {
+                            int tId = getTeamIdForParticipant(conn, id);
+                            int hId = getHackathonIdForTeam(conn, tId);
+                            return new Participant(id, name, email, password, tId, hId);
+                        }
+                        return new User(id, name, email, password);
+                    } catch (BlankFieldException e) {
+                        LOGGER.log(Level.WARNING, "Login fallito: l''account {0} ha campi obbligatori vuoti nel DB.", email);
+                        return null;
                     }
-                    return new User(id, name, email, password);
                 }
             }
         }
@@ -256,8 +262,13 @@ public class UserDAOImpl implements UserDAO {
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new User(rs.getInt(USER_ID_COL), rs.getString(NAME_COL),
-                            rs.getString(EMAIL_COL), rs.getString(PASSWORD_COL));
+                    try {
+                        return new User(rs.getInt(USER_ID_COL), rs.getString(NAME_COL),
+                                rs.getString(EMAIL_COL), rs.getString(PASSWORD_COL));
+                    } catch (BlankFieldException e) {
+                        LOGGER.log(Level.SEVERE, "Dati utente incompleti nel DB per ID: {0}", userId);
+                        return null;
+                    }
                 }
             }
         }
@@ -275,13 +286,22 @@ public class UserDAOImpl implements UserDAO {
         List<User> list = new ArrayList<>();
         String query = "SELECT u.userId, u.name, u.email, u.password FROM users u " +
                 "JOIN registration r ON u.userId = r.userId WHERE r.hackathonId = ?";
+
         try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setInt(1, hackathonId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new User(rs.getInt(USER_ID_COL), rs.getString(NAME_COL),
-                            rs.getString(EMAIL_COL), rs.getString(PASSWORD_COL)));
+                    try {
+                        list.add(new User(
+                                rs.getInt(USER_ID_COL),
+                                rs.getString(NAME_COL),
+                                rs.getString(EMAIL_COL),
+                                rs.getString(PASSWORD_COL)
+                        ));
+                    } catch (BlankFieldException e) {
+                        LOGGER.log(Level.WARNING, "Skipping corrupted user data in Limbo: {0}", rs.getString(EMAIL_COL));
+                    }
                 }
             }
         }
@@ -345,6 +365,42 @@ public class UserDAOImpl implements UserDAO {
                 return rs.next() ? rs.getInt(1) : 0;
             }
         }
+    }
+
+    /**
+     * Calcola il numero totale di partecipanti iscritti a un determinato hackathon.
+     * <p>
+     * Il conteggio è aggregato e include due categorie di utenti:
+     * 1. Gli utenti nel "limbo", ovvero coloro che sono presenti nella tabella {@code registration}
+     * ma non hanno ancora un team[cite: 7].
+     * 2. Gli utenti attivi, ovvero coloro che sono già membri di un team tramite la
+     * tabella {@code participation}[cite: 9].
+     * </p>
+     * <p>
+     * Questa operazione è fondamentale per validare il vincolo {@code maxParticipants}
+     * definito nella tabella {@code hackathon} prima di consentire nuove iscrizioni.
+     * </p>
+     *
+     * @param hackathonId L'identificativo univoco dell'hackathon da monitorare.
+     * @return Il numero totale di iscritti (somma di registrazioni pendenti e partecipazioni effettive).
+     * @throws SQLException Se si verifica un errore durante l'esecuzione della query SQL
+     * o problemi di connessione al database.
+     */
+    public int countTotalParticipantsByHackathon(int hackathonId) throws SQLException {
+        String query = "SELECT (" +
+                "  (SELECT COUNT(*) FROM registration WHERE hackathonId = ?) + " +
+                "  (SELECT COUNT(*) FROM participation p JOIN team t ON p.teamId = t.teamId WHERE t.hackathonId = ?)" +
+                ") as total";
+
+        try (Connection conn = ConnessioneDatabase.getInstance().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, hackathonId);
+            ps.setInt(2, hackathonId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt("total");
+            }
+        }
+        return 0;
     }
 
 }

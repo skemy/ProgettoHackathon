@@ -1,5 +1,7 @@
 package model;
 
+import exceptions.BlankFieldException;
+
 /**
  * Rappresenta l'entità di dominio Partecipante (Participant).
  * Questa classe specializza l'entità {@link User} aggiungendo le informazioni
@@ -20,7 +22,7 @@ public class Participant extends User {
      * Necessario per garantire la compatibilità con i framework di persistenza
      * e per l'istanziazione dinamica nel layer DAO.
      */
-    public Participant(int id, String name, String email, String password, int teamId, int hId) {
+    public Participant(int id, String name, String email, String password, int teamId, int hId)  {
         super(id, name, email, password);
         setTeamId(teamId);
         this.hackathonId = hId;

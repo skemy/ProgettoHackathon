@@ -1,5 +1,7 @@
 package model;
 
+import exceptions.BlankFieldException;
+
 /**
  * Rappresenta l'entità di dominio Utente (User) di base.
  * Questa classe funge da superclasse per tutti i ruoli del sistema (Partecipante, Giudice, Organizzatore).
@@ -64,7 +66,9 @@ public class User {
      * @param name Il nome da assegnare.
      */
     public void setName(String name) {
-        if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Name cannot be null or empty.");
+        if (name == null || name.trim().isEmpty()) {
+            throw new BlankFieldException("Name cannot be null or empty.");
+        }
         this.name = name;
     }
 
@@ -80,7 +84,7 @@ public class User {
      */
     public void setEmail(String email) {
         if (email == null || email.trim().isEmpty() || !email.contains("@")) {
-            throw new IllegalArgumentException("Invalid email format.");
+            throw new BlankFieldException("Invalid email format.");
         }
         this.email = email;
     }
@@ -95,8 +99,10 @@ public class User {
      * Imposta la password dell'utente.
      * @param password La password da assegnare.
      */
-    public void setPassword(String password) {
-        if (password == null || password.trim().isEmpty()) throw new IllegalArgumentException("Password cannot be null or empty.");
+    public void setPassword(String password)  {
+        if (password == null || password.trim().isEmpty()) {
+            throw new BlankFieldException("Password cannot be null or empty.");
+        }
         this.password = password;
     }
 

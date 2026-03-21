@@ -1,5 +1,6 @@
 package dao;
 
+import exceptions.BlankFieldException;
 import model.*;
 
 import java.sql.Connection;
@@ -86,7 +87,7 @@ public interface UserDAO {
 	 * @return L'oggetto User o null.
 	 * @throws SQLException In caso di errore SQL.
 	 */
-	User getUserById(int userId) throws SQLException;
+	User getUserById(int userId) throws SQLException, BlankFieldException;
 
 	/**
 	 * Recupera l'ID dell'hackathon a cui l'utente è iscritto nel Limbo.
@@ -118,5 +119,25 @@ public interface UserDAO {
 	 * @throws SQLException In caso di errore SQL.
 	 */
 	void cleanupLimboRegistrations(int hackathonId) throws SQLException;
+
+	/**
+	 * Restituisce il numero totale di utenti iscritti a un determinato hackathon,
+	 * sommando i partecipanti in diverse fasi del ciclo di vita dell'evento.
+	 * <p>
+	 * Il calcolo deve includere:
+	 * 1. Utenti nel "limbo": registrati alla tabella {@code registration} ma non ancora in un team.
+	 * 2. Utenti attivi: già associati a un team nella tabella {@code participation}.
+	 * </p>
+	 * <p>
+	 * Questo valore viene utilizzato dal Controller per convalidare il limite
+	 * {@code maxParticipants} prima di accettare nuove iscrizioni.
+	 * </p>
+	 *
+	 * @param hackathonId L'ID univoco dell'hackathon per cui calcolare il totale.
+	 * @return Il numero complessivo di iscritti (pendenti ed effettivi).
+	 * @throws SQLException In caso di errori durante l'accesso ai dati o l'esecuzione delle sub-query.
+	 */
+	int countTotalParticipantsByHackathon(int hackathonId) throws SQLException;
+
 
 }

@@ -1,6 +1,7 @@
 package dao;
 
 import database.ConnessioneDatabase;
+import exceptions.BlankFieldException;
 import model.Team;
 import model.Participant;
 
@@ -169,7 +170,7 @@ public class TeamDAOImpl implements TeamDAO {
      * @throws SQLException In caso di errore SQL.
      */
     @Override
-    public List<Participant> getTeamMembers(int teamId) throws SQLException {
+    public List<Participant> getTeamMembers(int teamId) throws SQLException, BlankFieldException {
         List<Participant> members = new ArrayList<>();
         String query = "SELECT u.userId, u.name, u.email, u.password FROM users u " +
                 "JOIN participation p ON u.userId = p.userId " +

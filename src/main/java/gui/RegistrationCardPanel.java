@@ -202,25 +202,16 @@ public class RegistrationCardPanel {
     }
 
     /**
+     /**
      * Gestisce il flusso completo di registrazione dell'utente.
      * <p>
      * Esegue le seguenti operazioni:
      * <ol>
-     *   <li>Recupera i dati dai campi di input (username, email, password, confirmPassword).</li>
-     *   <li>Valida la corrispondenza delle password tramite checkPasswords().</li>
-     *   <li>Invoca il Controller per la registrazione nel database.</li>
-     *   <li>Mostra un dialogo di successo e naviga verso il pannello Login.</li>
+     * <li>Recupera i dati dai campi di input (username, email, password, confirmPassword).</li>
+     * <li>Valida la corrispondenza delle password tramite checkPasswords().</li>
+     * <li>Invoca il Controller per la registrazione nel database.</li>
+     * <li>Mostra un dialogo di successo e naviga verso il pannello Login.</li>
      * </ol>
-     * </p>
-     * <p>
-     * Gestisce le seguenti eccezioni:
-     * <ul>
-     *   <li>{@link PasswordsDoNotMatchException} - Mostra etichetta di errore rossa.</li>
-     *   <li>{@link BlankFieldException} - Mostra dialogo di errore con il messaggio specifico.</li>
-     *   <li>{@link UsernameAlreadyTakenException} - Mostra dialogo di errore (username già registrato).</li>
-     *   <li>{@link EmailAlreadyTakenException} - Mostra dialogo di errore (email già registrata).</li>
-     *   <li>{@link SQLException} - Mostra dialogo di errore di connessione al database.</li>
-     * </ul>
      * </p>
      */
     private void handleRegistration() {
@@ -230,11 +221,15 @@ public class RegistrationCardPanel {
         String confirmPassword = new String(confirmPasswordField.getPassword());
 
         try {
+            // 1. Validazione grafica (corrispondenza password)
             checkPasswords(password, confirmPassword);
+
+            // 2. Chiamata al Controller (Logica di Business ed Entity)
             controller.registerUserAction(username, email, password);
 
+            // 3. Feedback di successo
             JOptionPane.showMessageDialog(
-                    null,
+                    rootPanel,
                     "Your account has been successfully registered!",
                     "Success",
                     JOptionPane.INFORMATION_MESSAGE
@@ -245,11 +240,16 @@ public class RegistrationCardPanel {
             layout.show(cardPanel, "login");
 
         } catch (PasswordsDoNotMatchException ex) {
+
             errorLabel.setVisible(true);
-        } catch (BlankFieldException | UsernameAlreadyTakenException | EmailAlreadyTakenException ex) {
+        } catch (BlankFieldException ex) {
+            JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Input Error", JOptionPane.WARNING_MESSAGE);
+        } catch (UsernameAlreadyTakenException | EmailAlreadyTakenException ex) {
             showErrorDialog(ex.getMessage());
         } catch (SQLException ex) {
             showErrorDialog("Connection error: Unable to register user at this time.");
+        } catch (Exception ex) {
+            showErrorDialog("An unexpected error occurred: " + ex.getMessage());
         }
     }
 

@@ -1,5 +1,6 @@
 package dao;
 
+import exceptions.BlankFieldException;
 import model.Team;
 import model.Participant;
 import java.sql.SQLException;
@@ -56,7 +57,7 @@ public interface TeamDAO {
      * @param teamId L'ID del team.
      * @throws SQLException In caso di errore di persistenza.
      */
-    List<Participant> getTeamMembers(int teamId) throws SQLException;
+    List<Participant> getTeamMembers(int teamId) throws SQLException, BlankFieldException;
 
     /**
      * Recupera l'ID del team a cui appartiene un determinato utente.
