@@ -21,28 +21,18 @@ import java.util.Locale;
 /**
  * Pannello per l'Organizzatore: gestisce la promozione degli utenti nel "Limbo" a Giudici (Layer Boundary).
  * <p>
- * Questo pannello consente agli organizzatori di visualizzare un elenco degli utenti in attesa di promozione
- * a Giudice e di promuoverli tramite un'interfaccia interattiva. Gli utenti in "Limbo" sono quelli registrati
- * all'hackathon ma che non hanno ancora assegnato un team prima dell'inizio dell'evento.
+ * Consente agli organizzatori di visualizzare l'elenco degli utenti registrati ma non assegnati
+ * a un team e di elevarli al ruolo di Giudice per la fase di valutazione.
  * </p>
- * <p>
- * Funzionalità principali:
- * <ul>
- *   <li>Visualizzazione della lista di utenti in attesa di promozione.</li>
- *   <li>Card interattive con effetti hover (cambio colore).</li>
- *   <li>Promozione a Giudice tramite conferma dialogo.</li>
- *   <li>Gestione degli errori di database con messaggi all'utente.</li>
- *   <li>Refresh automatico della lista dopo le operazioni.</li>
- * </ul>
+ * <p><b>Design Rationale:</b>
+ * Seguendo la strategia di centralizzazione della demo, questa funzionalità di gestione
+ * utente è stata inclusa in un pannello unico per l'Organizzatore. Ciò permette una
+ * gestione semplificata del "Limbo" senza dover navigare in moduli di amministrazione esterni.
  * </p>
- * <p>
- * Nota Architetturale: Sopprimiamo S1450 perché i campi Label/Panel sono necessari al GUI Designer
- * di IntelliJ per il corretto binding del file .form.
+ * <p><b>Evoluzione Futura:</b>
+ * In contesti enterprise, questa logica dovrebbe essere delegata a un modulo {@code UserManagementService}
+ * dedicato, separando la visualizzazione degli utenti dalla logica di promozione di ruolo.
  * </p>
- *
- * @see Controller
- * @see User
- * @see RoundedPanel
  */
 @SuppressWarnings("java:S1450")
 public class OrganizerManageCardPanel {
@@ -79,16 +69,10 @@ public class OrganizerManageCardPanel {
     /**
      * Recupera gli utenti nel limbo e popola la lista grafica.
      * <p>
-     * Svuota il pannello della lista, recupera tutti gli utenti in attesa di promozione
-     * dal database tramite il Controller, crea una card per ciascun utente e gestisce
-     * il caso di lista vuota visualizzando un messaggio informativo.
+     * Sincronizza la UI con il database recuperando gli utenti in attesa.
+     * In caso di errore di persistenza (SQLException), l'anomalia viene intercettata
+     * e notificata all'utente tramite un messaggio di errore non bloccante.
      * </p>
-     * <p>
-     * Gestisce la SQLException per evitare blocchi dell'interfaccia, visualizzando
-     * un dialogo di errore all'utente.
-     * </p>
-     *
-     * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
      */
     public void refreshData() {
         participantsListPanel.removeAll();
@@ -302,7 +286,14 @@ public class OrganizerManageCardPanel {
     }
 
     /**
-     * @noinspection ALL
+     * Utility per la risoluzione dei font, necessaria per il corretto rendering
+     * cross-platform della UI di IntelliJ IDEA.
+     *
+     * @param fontName    nome del font desiderato
+     * @param style       costante di stile (es. {@link Font#BOLD})
+     * @param size        dimensione del carattere
+     * @param currentFont font attualmente applicato per il calcolo del fallback
+     * @return un'istanza di {@link Font} valida per il sistema operativo in uso
      */
     private Font $$$getFont$$$(String fontName, int style, int size, Font currentFont) {
         if (currentFont == null) return null;

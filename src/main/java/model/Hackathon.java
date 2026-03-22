@@ -103,13 +103,39 @@ public class Hackathon {
     }
 
     public String getProblemDescription() { return problemDescription; }
+
     public void setProblemDescription(String problemDescription) { this.problemDescription = problemDescription;
+    }
+
+    /**
+     * Verifica se l'evento è ufficialmente iniziato in base al timestamp di sistema.
+     * <p>
+     * Questo stato determina l'apertura delle sottomissioni per i team e
+     * l'attivazione della fase di valutazione per i giudici.
+     * </p>
+     * * @return {@code true} se la data corrente è uguale o successiva a {@code startDate}
+     */
+    public boolean isStarted() {
+        return !LocalDateTime.now().isBefore(this.startDate);
+    }
+
+    /**
+     * Verifica se l'evento è ufficialmente concluso.
+     * @return true se l'ora attuale è successiva alla data di fine.
+     */
+    public boolean isEnded() {
+        return LocalDateTime.now().isAfter(this.endDate);
     }
     // --- BUILDER PATTERN ---
 
     /**
-     * Classe statica interna che implementa il Builder Pattern per l'entità Hackathon.
-     * Garantisce una creazione sicura, leggibile e flessibile dell'oggetto.
+     * Finalizza la costruzione dell'oggetto Hackathon applicando le regole di validazione atomica.
+     * <p>
+     * Assicura che i campi obbligatori (Titolo, Location, Date e Limiti) siano
+     * presenti e coerenti prima di restituire l'istanza.
+     * </p>
+     * * @return una nuova istanza validata di {@link Hackathon}
+     * @throws IllegalArgumentException se i requisiti minimi di integrità non sono soddisfatti
      */
     public static class Builder {
         private int hackathonId;

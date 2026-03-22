@@ -20,11 +20,31 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Pannello della Dashboard dedicato alla visualizzazione dei dettagli di un Hackathon.
- * Permette agli organizzatori di modificare il Problem Statement e pubblicare le classifiche.
+ * Pannello della Dashboard dedicato alla gestione e visualizzazione dei dettagli di un Hackathon.
  * <p>
- * Nota Architetturale: Gestisce internamente le SQLException propagate dal Layer Control,
- * garantendo un feedback visivo all'utente e rispettando il pattern Boundary.
+ * Questa classe funge da hub centrale per l'evento attivo, permettendo la consultazione
+ * dell'overview, la modifica del Problem Statement da parte degli organizzatori
+ * e la gestione delle classifiche (live e finali).
+ * </p>
+ * * <p><b>Design Rationale:</b>
+ * In linea con la filosofia di progettazione del Controller univoco, si è scelto di
+ * centralizzare le funzionalità in un unico pannello per contenere la complessità
+ * della struttura Boundary in questa fase di demo. Questa scelta favorisce una
+ * navigazione fluida all'interno di un unico contesto visuale (Single Point of View).
+ * </p>
+ * * <p><b>Evoluzione Futura:</b>
+ * Per garantire una maggiore scalabilità e aderire rigorosamente al principio di
+ * Singola Responsabilità (SRP), le iterazioni future prevedono la scissione in:
+ * <ul>
+ * <li>{@code HackathonOverviewPanel}: Per la sola visualizzazione dei metadati (date, location, limiti).</li>
+ * <li>{@code ProblemEditorComponent}: Per isolare la logica di editing e validazione del testo sfida.</li>
+ * <li>{@code RankingEngineView}: Per delegare la gestione dinamica delle classifiche e dei criteri di calcolo.</li>
+ * </ul>
+ * </p>
+ * * <p><b>Nota Architetturale:</b>
+ * La classe gestisce internamente le {@link java.sql.SQLException} propagate dal Layer Control,
+ * garantendo un feedback visivo immediato tramite {@link javax.swing.JOptionPane} e
+ * agendo come filtro finale del pattern Boundary.
  */
 @SuppressWarnings("java:S1450") // Sopprime il warning per i campi generati dal GUI Designer
 public class HackathonCardPanel {
@@ -34,6 +54,8 @@ public class HackathonCardPanel {
     private JPanel rootPanel;
     private JLabel hackathonLabel;
     private JLabel infoLabel;
+
+    /** Contenitore a scorrimento che ospita l'intera sezione informativa dell'hackathon. */
     private JScrollPane scrollPanel;
     private JLabel overviewLabel;
     private JPanel rTitlePanel;
@@ -63,11 +85,17 @@ public class HackathonCardPanel {
     private JLabel problemStatementLabel;
     private JPanel rEditPanel;
     private JLabel editLabel;
+
+    /** Area di testo dedicata alla descrizione tecnica della sfida (Problem Statement). */
     private JTextArea problemStatementTextArea;
     private JLabel rankingLabel;
     private JLabel publishLabel;
     private JPanel rPublishPanel;
     private JLabel rankingInfoLabel;
+
+    /** * Pannello dinamico destinato a contenere la lista dei team classificati.
+     * Viene popolato a runtime durante l'esecuzione di {@link #loadRanking(boolean)}.
+     */
     private JPanel rankingListPanel;
     private JLabel maxParticipantsLabel;
     private JLabel maxTeamSizeLabel;
@@ -80,6 +108,8 @@ public class HackathonCardPanel {
     private static final String PLACEHOLDER = "sample_text";
 
     private final Controller controller;
+
+    /** Flag di stato: indica se l'utente è attualmente in fase di editing del Problem Statement. */
     private boolean isEditingMode = false;
 
     /**
@@ -101,12 +131,10 @@ public class HackathonCardPanel {
     /**
      * Aggiorna i dati mostrati a schermo recuperando lo stato attuale dell'Hackathon.
      * <p>
-     * Carica il titolo dell'evento, i dettagli di overview (date, location, limiti),
-     * il problem statement e il ranking (live o finale). Gestisce il caso di utente
-     * non registrato a nessun hackathon.
+     * Sincronizza la UI con il database: carica i dettagli dell'evento, il problem statement
+     * e la classifica corretta (live o finale). Se si verifica un errore di persistenza,
+     * questo viene intercettato e mostrato all'utente tramite {@link JOptionPane}.
      * </p>
-     *
-     * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
      */
     public void refreshData() {
         try {
@@ -268,13 +296,14 @@ public class HackathonCardPanel {
     }
 
     /**
-     * Carica e visualizza il ranking dei team.
+     * Carica e visualizza il ranking dei team all'interno del {@code rankingListPanel}.
      * <p>
-     * Mostra il ranking finale se l'evento è terminato, oppure il ranking live
-     * se richiesto dall'organizzatore. Include le regole di ranking formattate in HTML.
+     * Interroga il controller per ottenere i dati: se l'evento è concluso recupera i risultati
+     * ufficiali, altrimenti mostra la classifica provvisoria per gli organizzatori.
      * </p>
      *
-     * @param isFinal true per mostrare la classifica finale, false per il ranking live.
+     * @param isFinal true per richiedere il calcolo dei risultati definitivi,
+     * false per la visualizzazione dinamica (live)
      */
     private void loadRanking(boolean isFinal) {
         rankingListPanel.add(Box.createVerticalStrut(10));
@@ -331,14 +360,10 @@ public class HackathonCardPanel {
     }
 
     /**
-     * Crea graficamente una card per visualizzare una riga della classifica.
-     * <p>
-     * La card contiene il testo del ranking formattato in grassetto e utilizza
-     * i colori della palette UIColors.
-     * </p>
+     * Crea un componente grafico arrotondato per rappresentare una singola posizione in classifica.
      *
-     * @param rankText Il testo formattato del ranking (es. "1. Team Name - Score: 95").
-     * @return Un RoundedPanel configurato con lo stile della card di ranking.
+     * @param rankText Il testo descrittivo del team e del punteggio da visualizzare
+     * @return un'istanza di {@link RoundedPanel} stilizzata per il ranking
      */
     private RoundedPanel createRankingCard(String rankText) {
         RoundedPanel card = new RoundedPanel();
@@ -468,7 +493,7 @@ public class HackathonCardPanel {
         titleContentLabel = new JLabel();
         Font titleContentLabelFont = this.$$$getFont$$$(null, -1, -1, titleContentLabel.getFont());
         if (titleContentLabelFont != null) titleContentLabel.setFont(titleContentLabelFont);
-        titleContentLabel.setText("sample_text");
+        titleContentLabel.setText(PLACEHOLDER);
         rTitleContentPanel.add(titleContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer4 = new Spacer();
         rTitlePanel.add(spacer4, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -487,7 +512,7 @@ public class HackathonCardPanel {
         rLocationContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rLocationPanel.add(rLocationContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         locationContentLabel = new JLabel();
-        locationContentLabel.setText("sample_text");
+        locationContentLabel.setText(PLACEHOLDER);
         rLocationContentPanel.add(locationContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer6 = new Spacer();
         rLocationPanel.add(spacer6, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -506,7 +531,7 @@ public class HackathonCardPanel {
         rStartDateContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rStartDatePanel.add(rStartDateContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         startDateContentLabel = new JLabel();
-        startDateContentLabel.setText("sample_text");
+        startDateContentLabel.setText(PLACEHOLDER);
         rStartDateContentPanel.add(startDateContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer8 = new Spacer();
         rStartDatePanel.add(spacer8, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -525,7 +550,7 @@ public class HackathonCardPanel {
         rEndDateContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rEndDatePanel.add(rEndDateContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         endDateContentLabel = new JLabel();
-        endDateContentLabel.setText("sample_text");
+        endDateContentLabel.setText(PLACEHOLDER);
         rEndDateContentPanel.add(endDateContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer10 = new Spacer();
         rEndDatePanel.add(spacer10, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -544,7 +569,7 @@ public class HackathonCardPanel {
         rDeadlineContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rDeadlinePanel.add(rDeadlineContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         deadlineContentLabel = new JLabel();
-        deadlineContentLabel.setText("sample_text");
+        deadlineContentLabel.setText(PLACEHOLDER);
         rDeadlineContentPanel.add(deadlineContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer12 = new Spacer();
         rDeadlinePanel.add(spacer12, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -563,7 +588,7 @@ public class HackathonCardPanel {
         rOrganizerContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rOrganizerPanel.add(rOrganizerContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         organizerContentLabel = new JLabel();
-        organizerContentLabel.setText("sample_text");
+        organizerContentLabel.setText(PLACEHOLDER);
         rOrganizerContentPanel.add(organizerContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer14 = new Spacer();
         rOrganizerPanel.add(spacer14, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -644,7 +669,7 @@ public class HackathonCardPanel {
         rMaxParticipantsContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rMaxParticipantsPanel.add(rMaxParticipantsContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         maxParticipantsContentLabel = new JLabel();
-        maxParticipantsContentLabel.setText("sample_text");
+        maxParticipantsContentLabel.setText(PLACEHOLDER);
         rMaxParticipantsContentPanel.add(maxParticipantsContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer20 = new Spacer();
         rMaxParticipantsPanel.add(spacer20, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -663,7 +688,7 @@ public class HackathonCardPanel {
         rMaxTeamSizeContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rMaxTeamSizePanel.add(rMaxTeamSizeContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         maxTeamSizeContentLabel = new JLabel();
-        maxTeamSizeContentLabel.setText("sample_text");
+        maxTeamSizeContentLabel.setText(PLACEHOLDER);
         rMaxTeamSizeContentPanel.add(maxTeamSizeContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer22 = new Spacer();
         rMaxTeamSizePanel.add(spacer22, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));

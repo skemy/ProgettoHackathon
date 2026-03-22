@@ -26,11 +26,18 @@ import java.util.logging.Logger;
  */
 public class DocumentUploadDialog extends JDialog {
 
+    /** Logger della classe per il tracciamento delle operazioni di upload e degli errori di sistema. */
     private static final Logger LOGGER = Logger.getLogger(DocumentUploadDialog.class.getName());
 
     private JPanel rootPanel;
+
+    /** Campo di testo per l'inserimento del titolo o della descrizione del documento. */
     private JTextField nameField;
+
+    /** Campo di testo per l'URL del documento o del repository. */
     private JTextField urlField;
+
+    /** Pannello personalizzato che funge da pulsante di upload con supporto ad eventi mouse. */
     private JPanel rUploadPanel;
     private JLabel uploadLabel;
 
@@ -87,7 +94,14 @@ public class DocumentUploadDialog extends JDialog {
     }
 
     /**
-     * Esegue la logica di validazione superficiale e invoca il Controller.
+     * Avvia il processo di caricamento dei dati.
+     * <p>
+     * Effettua una validazione sintattica locale (campi non vuoti) e delega al
+     * {@link Controller} l'inserimento persistente. Gestisce i feedback visuali
+     * per l'utente in caso di successo o errore.
+     * </p>
+     *
+     * @param controller il coordinatore logico a cui delegare l'azione di addDocument
      */
     private void processUpload(Controller controller) {
         String name = nameField.getText().trim();
@@ -106,7 +120,6 @@ public class DocumentUploadDialog extends JDialog {
             dispose();
 
         } catch (IllegalStateException ex) {
-            // Gestione di errori di stato (es. utente non partecipante)
             LOGGER.log(Level.WARNING, "Upload blocked by controller: {0}", ex.getMessage());
             JOptionPane.showMessageDialog(rootPanel, ex.getMessage(), "Access Denied", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
@@ -166,7 +179,14 @@ public class DocumentUploadDialog extends JDialog {
     }
 
     /**
-     * @noinspection ALL
+     * Metodo di utilità per la risoluzione dei font, generato dal designer.
+     * Gestisce il fallback dei font tra diversi sistemi operativi (es. MacOS vs Windows).
+     *
+     * @param fontName    nome del font da applicare (es. "SansSerif")
+     * @param style       stile del font (es. {@link Font#BOLD})
+     * @param size        dimensione in pixel del font
+     * @param currentFont font di base da cui ereditare le proprietà se i parametri sono null o -1
+     * @return un'istanza di {@link Font} valida per l'ambiente di runtime corrente
      */
     private Font $$$getFont$$$(String fontName, int style, int size, Font currentFont) {
         if (currentFont == null) return null;
@@ -188,7 +208,8 @@ public class DocumentUploadDialog extends JDialog {
     }
 
     /**
-     * @noinspection ALL
+     * Inizializza i componenti personalizzati non standard.
+     * Invocato automaticamente dal codice generato durante l'esecuzione di $$$setupUI$$$.
      */
     public JComponent $$$getRootComponent$$$() {
         return rootPanel;

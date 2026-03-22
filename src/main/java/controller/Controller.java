@@ -15,11 +15,16 @@ import java.util.logging.Level;
 
 
 /**
- * Orchestratore centrale del sistema (Layer Control nel pattern BCE - Boundary Control Entity).
- * Coordina il flusso di dati tra la Boundary (GUI) e l'Entity Access (DAO), incapsulando
- * la logica di business principale.
- * Viene gestito come fulcro per il mantenimento dello stato della sessione utente
- * corrente e per l'applicazione delle regole di autorizzazione.
+ * Orchestratore centrale del sistema (Layer Control nel pattern BCE).
+ * <p>
+ * Coordina il flusso di dati tra la Boundary (GUI) e l'Entity Access (DAO).
+ * Mantiene lo stato della sessione tramite l'attributo {@code loggedInUser}.
+ * </p>
+ * <p><b>Concurrency Note:</b>
+ * Questa classe non è thread-safe. È progettata per essere utilizzata all'interno
+ * dell'Event Dispatch Thread (EDT) di Swing. Accessi concorrenti allo stato
+ * dell'utente potrebbero causare inconsistenze.
+ * </p>
  */
 public class Controller {
 
@@ -67,17 +72,17 @@ public class Controller {
      * * @throws SQLException Se si verifica un errore durante il recupero dell'hackathon.
      * @throws IllegalStateException Se nessun hackathon è attivo o se l'evento è già terminato.
      */
-    /* TODO: In produzione, aggiungere now.isBefore(current.getStartDate())
-    *  per impedire azioni pre-evento. Mantenuto permissivo per scopi di demo/test.
-    */
-
     private void ensureHackathonIsActive() throws SQLException {
         Hackathon current = getCurrentHackathon();
         if (current == null) {
             throw new IllegalStateException("No active hackathons found for this operation.");
         }
-
-        if (LocalDateTime.now().isAfter(current.getEndDate())) {
+        if (!current.isStarted()) {
+            throw new IllegalStateException("The event has not started yet. " +
+                    "You can perform this action starting from: " +
+                    current.getStartDate().toLocalDate() + " at " + current.getStartDate().toLocalTime());
+        }
+        if (current.isEnded()) {
             throw new IllegalStateException("The event ended on " +
                     current.getEndDate().toLocalDate() + ". The system is now in read-only mode.");
         }
@@ -104,13 +109,17 @@ public class Controller {
     public User getCurrentUser() { return this.loggedInUser; }
 
     /**
-     * Gestisce l'azione di Login. Valida gli input primari, interroga il DB e, in caso di successo,
-     * innesca la risoluzione dinamica del ruolo dell'utente per il polimorfismo.
-     * * @param name L'username inserito.
-     * @param password La password in chiaro inserita.
-     * @throws BlankFieldException Se i campi sono nulli o vuoti, riducendo le query inutili al DB.
-     * @throws UserNotFoundException Se le credenziali non trovano riscontro.
-     * @throws SQLException In caso di errori di comunicazione con il database.
+     * Gestisce l'autenticazione dell'utente e l'inizializzazione della sessione.
+     * <p>
+     * Al successo, il metodo attiva il meccanismo di risoluzione dinamica del ruolo,
+     * trasformando l'istanza {@code User} nella sottoclasse specifica (Participant,
+     * Judge, Organizer), abilitando così il polimorfismo nel resto del sistema.
+     * </p>
+     * @param name     Username per l'identificazione.
+     * @param password Password in chiaro (la cifratura è delegata al layer DAO).
+     * @throws BlankFieldException   se i parametri di input sono nulli o vuoti.
+     * @throws UserNotFoundException se le credenziali sono errate o l'utente non esiste.
+     * @throws SQLException          in caso di errore fatale di comunicazione con il DB.
      */
     public void loginUserAction(String name, String password) throws UserNotFoundException, SQLException {
         if (name == null || name.trim().isEmpty() || password == null || password.trim().isEmpty()) {
@@ -203,8 +212,6 @@ public class Controller {
      */
     public void joinHackathonAction(int hackathonId) throws CannotRegisterToEventException, SQLException {
         Hackathon target = hackathonDAO.getHackathonById(hackathonId);
-
-        // Controllo Temporale (Evento chiuso)
         if (target != null && LocalDateTime.now().isAfter(target.getStartDate())) {
             throw new CannotRegisterToEventException("The event is already closed for registrations.");
         }
@@ -216,7 +223,6 @@ public class Controller {
                         target.getMaxParticipants() + " participants.");
             }
         }
-        // Controllo dei Ruoli (Organizer, Judge, Participant)
         if (!loggedInUser.getClass().equals(User.class)) {
             if (loggedInUser instanceof Organizer) {
                 throw new CannotRegisterToEventException("You are an organizer of an event. You can't participate to another Hackathon.");
@@ -224,13 +230,10 @@ public class Controller {
                 throw new CannotRegisterToEventException("You already have an active role in another event.");
             }
         }
-
-        // Controllo Limbo (Utente base già iscritto altrove)
         if (userDAO.getRegisteredHackathonId(loggedInUser.getUserId()) > 0) {
             throw new CannotRegisterToEventException("You are already registered to another hackathon.");
         }
 
-        // Se passa tutti i controlli, esegue l'iscrizione
         userDAO.registerUserToHackathon(loggedInUser.getUserId(), hackathonId);
     }
 
@@ -266,10 +269,7 @@ public class Controller {
      */
     private int resolveCurrentHackathonId() throws SQLException {
         if (loggedInUser == null) return 0;
-
-        // Sfruttiamo il polimorfismo del Model per ottenere l'ID
         int id = loggedInUser.getAssociatedHackathonId();
-
         // Se è 0 (utente nel limbo), cerchiamo l'ID dell'iscrizione pendente nel DB
         return (id > 0) ? id : userDAO.getRegisteredHackathonId(loggedInUser.getUserId());
     }
@@ -320,13 +320,16 @@ public class Controller {
     // --- AZIONI TEAM E DOCUMENTI ---
 
     /**
-     * Crea un nuovo team ed estrae l'utente dal "limbo" delle iscrizioni pendenti.
-     * Rialloca l'utente elevandone lo stato a `Participant` forzando una ri-risoluzione del ruolo.
-     * * @param teamName Il nome desiderato per il team.
-     * @return Il codice d'accesso generato per il nuovo team.
-     * @throws SQLException Se vi sono errori nelle diverse fasi della transazione (creazione, link, rimozione limbo).
-     * @throws IllegalStateException Se l'utente tenta di creare un team senza aver prima scelto un evento.
-     * @throws IllegalArgumentException Se si verifica un errore anomalo durante la generazione dell'ID del team.
+     * Crea un nuovo team e aggiorna lo stato di partecipazione dell'utente.
+     * <p>
+     * Questa è un'operazione composta: crea il record del team, genera il codice
+     * d'accesso, collega l'utente al team e lo rimuove dal "limbo".
+     * L'operazione è considerata atomica a livello di logica applicativa.
+     * </p>
+     * @param teamName Nome identificativo del team.
+     * @return Il codice d'accesso univoco generato dal sistema.
+     * @throws SQLException          per errori in una delle fasi di persistenza.
+     * @throws IllegalStateException se l'utente non è regolarmente iscritto all'evento.
      */
     public String createTeamAction(String teamName) throws SQLException,BlankFieldException {
         ensureHackathonIsActive();
@@ -383,10 +386,9 @@ public class Controller {
         int registeredHid = userDAO.getRegisteredHackathonId(loggedInUser.getUserId());
         teamDAO.linkUserToTeam(loggedInUser.getUserId(), teamId);
 
-        // Rimuove l'utente dal limbo
         userDAO.removeFromLimbo(loggedInUser.getUserId(), registeredHid);
 
-        // Aggiorna la sessione (l'utente diventa Participant)
+        // Aggiorna la sessione
         this.loggedInUser = resolveActualUserRole(loggedInUser);
     }
 
@@ -418,12 +420,12 @@ public class Controller {
     }
 
     /**
-     * Registra il voto assegnato da un giudice a un team. Passa per la validazione temporale
-     * di `ensureHackathonIsActive()`.
-     * * @param teamId L'ID del team giudicato.
-     * @param score Il punteggio (generalmente intero, da 1 a X).
-     * @return true se l'inserimento va a buon fine.
-     * @throws SQLException Se si viola qualche constraint sul database.
+     * Registra la valutazione numerica assegnata da un giudice a un team.
+     * * @param teamId ID univoco del team da valutare.
+     * @param score  punteggio assegnato (valore float, tipicamente nel range 0.0 - 10.0).
+     * @return {@code true} se l'operazione di inserimento nel DB è confermata.
+     * @throws SQLException          se il voto viola vincoli di integrità (es. voto duplicato).
+     * @throws IllegalStateException se l'evento non è in fase di valutazione attiva.
      */
     public boolean voteTeamAction(int teamId, float score) throws SQLException {
         ensureHackathonIsActive();

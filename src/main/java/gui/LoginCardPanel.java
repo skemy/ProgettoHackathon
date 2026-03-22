@@ -20,10 +20,16 @@ import java.util.Locale;
 
 /**
  * Pannello grafico per la gestione del login utente (Layer Boundary nel pattern BCE).
- * Coordina l'acquisizione delle credenziali e delega la logica di business al Controller.
  * <p>
- * Nota Architetturale: Gestisce in modo centralizzato le eccezioni SQL e di business,
- * garantendo che l'utente riceva feedback immediati in caso di errori di persistenza.
+ * Coordina l'acquisizione delle credenziali (username e password) e delega la
+ * validazione dell'autenticazione al {@link Controller}.
+ * </p>
+ * * <p><b>Design Rationale:</b>
+ * Come per gli altri componenti del layer Boundary, questo pannello centralizza la
+ * gestione dei feedback visivi. Sebbene in un sistema distribuito la validazione
+ * potrebbe essere isolata, per questa demo la logica di transizione verso il
+ * {@code MainFrame} è gestita direttamente qui per semplificare il flusso di navigazione.
+ * </p>
  */
 public class LoginCardPanel {
     private JPanel rootPanel;
@@ -103,8 +109,15 @@ public class LoginCardPanel {
     }
 
     /**
-     * Gestisce la logica di autenticazione recuperando i dati dalla Boundary.
-     * Risolve il problema "Unhandled exception: java.sql.SQLException".
+     * Recupera le credenziali dai campi di testo e invoca l'azione di login sul Controller.
+     * <p>
+     * Gestisce i seguenti scenari di errore:
+     * <ul>
+     * <li>{@link exceptions.BlankFieldException}: Se uno dei campi è vuoto.</li>
+     * <li>{@link exceptions.UserNotFoundException}: Se le credenziali non corrispondono a nessun utente.</li>
+     * <li>{@link java.sql.SQLException}: In caso di anomalie di connessione al database.</li>
+     * </ul>
+     * </p>
      */
     private void handleLogin() {
         String username = usernameField.getText();
@@ -122,7 +135,12 @@ public class LoginCardPanel {
     }
 
     /**
-     * Esegue il passaggio alla finestra principale dell'applicazione in caso di successo.
+     * Inizializza e visualizza la finestra principale (MainFrame) a seguito di un login riuscito.
+     * <p>
+     * Il metodo assicura che l'operazione avvenga nell'Event Dispatch Thread (EDT)
+     * tramite {@link SwingUtilities#invokeLater(Runnable)} e provvede alla chiusura
+     * (dispose) della finestra di autenticazione corrente.
+     * </p>
      */
     private void callMainFrame() {
         SwingUtilities.invokeLater(() -> {
@@ -235,7 +253,14 @@ public class LoginCardPanel {
     }
 
     /**
-     * @noinspection ALL
+     * Risolve dinamicamente il font richiesto dal designer, applicando logiche di
+     * fallback per la compatibilità cross-platform (es. MacOS StyleContext).
+     *
+     * @param fontName    Nome del font (null per default)
+     * @param style       Stile (Bold/Plain), -1 per mantenere l'originale
+     * @param size        Dimensione in punti, -1 per mantenere l'originale
+     * @param currentFont Font di riferimento del componente
+     * @return L'istanza di {@link Font} ottimizzata per il rendering
      */
     private Font $$$getFont$$$(String fontName, int style, int size, Font currentFont) {
         if (currentFont == null) return null;

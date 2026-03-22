@@ -39,14 +39,24 @@ import java.util.Locale;
  */
 public class DashboardCardPanel {
 
+    /** Titolo standard utilizzato per le finestre di dialogo di errore. */
     private static final String ERROR_TITLE = "Error";
 
+    private static final String FONT_FAMILY = "SansSerif";
+
+    /** Pannello contenitore principale della dashboard. */
     private JPanel rootPanel;
     private JLabel dashboardLabel;
     private JLabel welcomeLabel;
+
+    /** Pannello cliccabile (arrotondato) per l'attivazione della creazione di nuovi eventi. */
     private JPanel rAddPanel;
     private JLabel addLabel;
+
+    /** Contenitore a scorrimento per la lista degli eventi. */
     private JScrollPane scrollPanel;
+
+    /** Pannello dinamico in cui vengono iniettate le card degli hackathon. */
     private JPanel eventListPanel;
     private JLabel infoLabel;
     private JLabel openEventsLabel;
@@ -170,7 +180,7 @@ public class DashboardCardPanel {
         card.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         JLabel title = new JLabel(h.getTitle());
-        title.setFont(new Font("SansSerif", Font.BOLD, 18));
+        title.setFont(new Font(FONT_FAMILY, Font.BOLD, 18));
         title.setForeground(UIColors.NIGHT_BLUE);
 
         String orgName = "Loading...";
@@ -180,21 +190,21 @@ public class DashboardCardPanel {
             orgName = "Unknown";
         }
         JLabel organizer = new JLabel("👤 Organized by: @" + orgName);
-        organizer.setFont(new Font("SansSerif", Font.ITALIC, 12));
+        organizer.setFont(new Font(FONT_FAMILY, Font.ITALIC, 12));
         organizer.setForeground(Color.GRAY);
         JLabel details = new JLabel(String.format("📍 %s | 📅 %s to %s",
                 h.getLocation(), h.getStartDate().toLocalDate(), h.getEndDate().toLocalDate()));
-        details.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        details.setFont(new Font(FONT_FAMILY, Font.PLAIN, 13));
         details.setForeground(Color.DARK_GRAY);
 
-        JLabel regWindow = new JLabel(String.format("📝 Registration: %s - %s",
+        JLabel regWindow = new JLabel(String.format("Registration: %s - %s",
                 h.getRegistrationStartDate().toLocalDate(), h.getRegistrationEndDate().toLocalDate()));
-        regWindow.setFont(new Font("SansSerif", Font.BOLD, 12));
+        regWindow.setFont(new Font(FONT_FAMILY, Font.BOLD, 12));
         regWindow.setForeground(UIColors.CARMINE_RED);
 
         JLabel capacity = new JLabel(String.format("👥 Max Participants: %d | 🛡️ Max Team Size: %d",
                 h.getMaxParticipants(), h.getMaxTeamSize()));
-        capacity.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        capacity.setFont(new Font(FONT_FAMILY, Font.PLAIN, 12));
         capacity.setForeground(new Color(46, 125, 50));
 
         card.add(title);
@@ -446,7 +456,14 @@ public class DashboardCardPanel {
     }
 
     /**
-     * @noinspection ALL
+     * Risolve il font appropriato per il componente, gestendo i fallback di sistema
+     * e le variazioni di stile/dimensione richieste dal designer.
+     *
+     * @param fontName    Nome del font da caricare (null per utilizzare quello di sistema)
+     * @param style       Stile del font (es. {@link Font#BOLD}), o -1 per mantenere l'originale
+     * @param size        Dimensione del font, o -1 per mantenere l'originale
+     * @param currentFont Font attualmente in uso nel componente per il calcolo del fallback
+     * @return Un'istanza di {@link Font} valida e renderizzabile sul sistema operativo corrente
      */
     private Font $$$getFont$$$(String fontName, int style, int size, Font currentFont) {
         if (currentFont == null) return null;

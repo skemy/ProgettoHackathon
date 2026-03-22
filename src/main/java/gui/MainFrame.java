@@ -16,31 +16,18 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.util.Locale;
-
 /**
  * Finestra principale dell'applicazione (Layer Boundary).
  * <p>
  * Gestisce la navigazione tra le diverse aree funzionali tramite una sidebar interattiva
- * e un sistema di CardLayout. Consente il passaggio tra Dashboard, Hackathon, Team,
- * Manage (Organizzatori) ed Evaluation (Giudici) in base al ruolo dell'utente.
+ * e un sistema di {@link CardLayout}.
  * </p>
- * <p>
- * Funzionalità principali:
- * <ul>
- *   <li>Caricamento dello stato dell'utente loggato.</li>
- *   <li>Gestione della visibilità dei pannelli in base al ruolo (Organizer, Judge, Participant).</li>
- *   <li>Navigazione tra i vari card panel tramite click sulla sidebar.</li>
- *   <li>Effetti visivi interattivi (hover) sulla sidebar.</li>
- *   <li>Controllo dello stato di "kicked" per utenti rimossi dall'evento.</li>
- * </ul>
+ * <p><b>Design Rationale:</b>
+ * Per mantenere la coerenza con l'architettura a Controller unico, il {@code MainFrame}
+ * agisce come orchestratore centrale della navigazione. Questa scelta riduce l'overhead
+ * di gestione di finestre multiple, centralizzando il controllo dei ruoli (Organizer/Judge)
+ * in un unico punto di accesso.
  * </p>
- *
- * @see Controller
- * @see DashboardCardPanel
- * @see HackathonCardPanel
- * @see TeamCardPanel
- * @see OrganizerManageCardPanel
- * @see JudgeManageCardPanel
  */
 public class MainFrame extends JFrame {
 
@@ -67,15 +54,15 @@ public class MainFrame extends JFrame {
     private JLabel menuLabel;
     private JPanel menuPanel;
     private JLabel evaluationLable;
+    private static final String COPY_ERROR_MSG = "Cannot copy code. Connection error.";
 
-    // Marcato come transient per risolvere SonarQube S1948 (Serialization)
     private final transient Controller controller;
     private CardLayout cardLayout;
 
-    private HackathonCardPanel hackathonCard;
-    private TeamCardPanel teamCard;
-    private OrganizerManageCardPanel organizerCard;
-    private JudgeManageCardPanel judgeCard;
+    private transient HackathonCardPanel hackathonCard;
+    private transient TeamCardPanel teamCard;
+    private transient OrganizerManageCardPanel organizerCard;
+    private transient JudgeManageCardPanel judgeCard;
 
     /**
      * Inizializza la cornice principale e carica lo stato dell'utente loggato.
@@ -105,6 +92,10 @@ public class MainFrame extends JFrame {
         try {
             userName = controller.getCurrentUser().getName();
         } catch (Exception e) {
+            JOptionPane.showMessageDialog(rootPanel,
+                    COPY_ERROR_MSG,
+                    DB_ERROR_TITLE,
+                    JOptionPane.WARNING_MESSAGE);
         }
         setTitle("Hackathon.IO - Home (@" + userName + ")");
         setSize(1000, 700);
@@ -216,18 +207,9 @@ public class MainFrame extends JFrame {
     /**
      * Configura i listener della sidebar per la navigazione tra i pannelli.
      * <p>
-     * Registra i listener per:
-     * <ul>
-     *   <li>Dashboard - Navigazione senza refresh.</li>
-     *   <li>Hackathon - Navigazione con refresh dei dati.</li>
-     *   <li>Team - Navigazione con verifica di iscrizione a evento.</li>
-     *   <li>Manage - Navigazione con refresh per organizzatori.</li>
-     *   <li>Evaluation - Navigazione con refresh per giudici.</li>
-     *   <li>Logout - Chiusura della finestra.</li>
-     * </ul>
-     * Gestisce gli effetti hover (cambio colore) su tutti gli elementi della sidebar.
+     * Associa a ogni pannello della sidebar un {@link SidebarListener} o un listener
+     * dedicato (come per Logout e Team) per gestire il cambio di vista e il refresh dei dati.
      * </p>
-     * @throws SQLException Gestita internamente con visualizzazione di messaggi di errore.
      */
     private void setupListeners() {
         rDashboardPanel.addMouseListener(new SidebarListener(rDashboardPanel, DASHBOARD_ID, null));

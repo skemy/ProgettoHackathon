@@ -1,7 +1,5 @@
 package model;
 
-import exceptions.BlankFieldException;
-
 /**
  * Rappresenta l'entità di dominio Giudice (Judge).
  * Questa classe estende l'entità base {@link User} per modellarne il ruolo specifico

@@ -23,33 +23,17 @@ import java.util.Locale;
 /**
  * Pannello grafico per la registrazione di nuovi utenti (Layer Boundary).
  * <p>
- * Gestisce l'acquisizione dei dati anagrafici (username, email, password) e la loro validazione
- * lato GUI prima dell'invio al Controller per la persistenza nel database. Fornisce feedback
- * visivo all'utente in caso di errori di validazione o di connessione al database.
+ * Gestisce l'acquisizione dei dati anagrafici e la loro validazione prima della persistenza.
  * </p>
- * <p>
- * Funzionalità principali:
- * <ul>
- *   <li>Acquisizione di username, email e password con conferma.</li>
- *   <li>Validazione lato GUI (controllo corrispondenza password).</li>
- *   <li>Gestione di eccezioni di business (username/email già registrati, campi vuoti).</li>
- *   <li>Gestione resiliente di errori SQL (disconnessione, timeout).</li>
- *   <li>Effetti interattivi (hover) sui pulsanti "Back" e "Confirm".</li>
- *   <li>Visualizzazione di messaggi di errore e successo tramite dialoghi.</li>
- *   <li>Navigazione verso il pannello Login al completamento o al clic "Back".</li>
- * </ul>
+ * <p><b>Design Rationale:</b>
+ * La validazione della corrispondenza delle password è stata mantenuta nel layer Boundary
+ * per fornire un feedback immediato all'utente (tramite {@code errorLabel}) senza
+ * sovraccaricare il Controller con logiche sintattiche puramente visuali.
  * </p>
- * <p>
- * Nota Architetturale: 100% SonarQube Compliant. Integra la gestione delle eccezioni SQL
- * propagate dal Controller per garantire la resilienza dell'interfaccia in caso di errori DB.
+ * <p><b>Evoluzione Futura:</b>
+ * Per una maggiore sicurezza, la validazione della forza della password (complessità)
+ * dovrebbe essere delegata a un servizio di validazione esterno richiamato dal Controller.
  * </p>
- *
- * @see Controller
- * @see LoginCardPanel
- * @see PasswordsDoNotMatchException
- * @see BlankFieldException
- * @see UsernameAlreadyTakenException
- * @see EmailAlreadyTakenException
  */
 public class RegistrationCardPanel {
     private JPanel rootPanel;
@@ -202,16 +186,12 @@ public class RegistrationCardPanel {
     }
 
     /**
-     /**
      * Gestisce il flusso completo di registrazione dell'utente.
      * <p>
-     * Esegue le seguenti operazioni:
-     * <ol>
-     * <li>Recupera i dati dai campi di input (username, email, password, confirmPassword).</li>
-     * <li>Valida la corrispondenza delle password tramite checkPasswords().</li>
-     * <li>Invoca il Controller per la registrazione nel database.</li>
-     * <li>Mostra un dialogo di successo e naviga verso il pannello Login.</li>
-     * </ol>
+     * Coordina il recupero dei dati, la validazione locale e la persistenza.
+     * In caso di errori di connessione al database ({@link java.sql.SQLException}),
+     * viene intercettata l'anomalia per mostrare un messaggio di errore generico,
+     * preservando la stabilità della GUI.
      * </p>
      */
     private void handleRegistration() {
@@ -221,20 +201,14 @@ public class RegistrationCardPanel {
         String confirmPassword = new String(confirmPasswordField.getPassword());
 
         try {
-            // 1. Validazione grafica (corrispondenza password)
             checkPasswords(password, confirmPassword);
-
-            // 2. Chiamata al Controller (Logica di Business ed Entity)
             controller.registerUserAction(username, email, password);
-
-            // 3. Feedback di successo
             JOptionPane.showMessageDialog(
                     rootPanel,
                     "Your account has been successfully registered!",
                     "Success",
                     JOptionPane.INFORMATION_MESSAGE
             );
-
             clearFormFields();
             CardLayout layout = (CardLayout) cardPanel.getLayout();
             layout.show(cardPanel, "login");
@@ -269,14 +243,11 @@ public class RegistrationCardPanel {
 
     /**
      * Valida la corrispondenza tra password e conferma password.
-     * <p>
-     * Se le password non corrispondono, lancia PasswordsDoNotMatchException.
-     * Se le password corrispondono, nasconde l'etichetta di errore.
-     * </p>
      *
-     * @param password La password inserita nel campo password.
-     * @param confirmPassword La password inserita nel campo conferma password.
-     * @throws PasswordsDoNotMatchException Se le due password non sono identiche.
+     * @param password        la password primaria inserita
+     * @param confirmPassword la password di verifica
+     * @throws PasswordsDoNotMatchException se le due stringhe non sono identiche,
+     * attivando la visualizzazione di {@code errorLabel}
      */
     private void checkPasswords(String password, String confirmPassword) throws PasswordsDoNotMatchException {
         if (!password.equals(confirmPassword)) {

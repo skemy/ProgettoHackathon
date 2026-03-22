@@ -22,34 +22,20 @@ import java.util.Locale;
 /**
  * Pannello per la gestione del Team (Layer Boundary).
  * <p>
- * Gestisce l'interfaccia grafica per la creazione e l'unione ai team, nonché la visualizzazione
- * dei membri del team e dei documenti caricati. Consente ai partecipanti di:
- * <ul>
- *   <li>Creare un nuovo team e ricevere un codice di accesso.</li>
- *   <li>Unirsi a un team esistente tramite codice di accesso.</li>
- *   <li>Visualizzare i membri del team e le loro informazioni di contatto.</li>
- *   <li>Caricare documenti di progetto e visualizzare i feedback dei giudici.</li>
- *   <li>Copiare il codice di accesso del team negli appunti.</li>
- * </ul>
+ * Gestisce l'interfaccia grafica per la creazione, l'unione e la visualizzazione
+ * dei team, adattandosi dinamicamente allo stato di partecipazione dell'utente.
  * </p>
- * <p>
- * L'interfaccia si adatta dinamicamente in base allo stato dell'utente:
- * <ul>
- *   <li><b>Utente in Limbo:</b> Mostra i pulsanti "Create Team" e "Join Team".</li>
- *   <li><b>Membro del Team:</b> Mostra i dati del team, i membri e i documenti caricati.</li>
- * </ul>
+ * <p><b>Design Rationale:</b>
+ * Si è scelto di unificare gli stati "Limbo" e "Member" in un unico pannello per
+ * semplificare la gestione del {@code CardLayout} nel {@code MainFrame}.
+ * La logica di switch è gestita internamente tramite {@link #refreshData()} per
+ * garantire una transizione fluida senza ricaricare l'intera finestra.
  * </p>
- * <p>
- * Nota Architetturale: Sopprimiamo S1450 perché i campi Label/Panel sono necessari al GUI Designer
- * di IntelliJ per il corretto binding del file .form, anche se usati solo nel setup.
+ * <p><b>Evoluzione Futura:</b>
+ * Data la complessità delle liste (membri e documenti), una versione scalabile
+ * dovrebbe separare questi contesti in {@code TeamMembershipView} e
+ * {@code ProjectSubmissionView} per isolare le responsabilità di caricamento dati.
  * </p>
- *
- * @see Controller
- * @see Participant
- * @see Team
- * @see Document
- * @see Feedback
- * @see DocumentUploadDialog
  */
 @SuppressWarnings("java:S1450")
 public class TeamCardPanel {
@@ -113,17 +99,19 @@ public class TeamCardPanel {
      */
     public void refreshData() {
         User currentUser = controller.getCurrentUser();
-
         try {
+            Hackathon h = controller.getCurrentHackathon();
+            boolean isEventActive = (h != null && h.isStarted() && !h.isEnded());
+
             if (currentUser instanceof Participant) {
-                setupUIForTeamMember();
+                setupUIForTeamMember(isEventActive);
             } else {
-                setupUIForLimboUser();
+                setupUIForLimboUser(isEventActive);
             }
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(rootPanel, "Error retrieving team data: " + e.getMessage(), DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(rootPanel, "Error retrieving team data: " + e.getMessage(),
+                    DB_ERROR_TITLE, JOptionPane.ERROR_MESSAGE);
         }
-
         rootPanel.revalidate();
         rootPanel.repaint();
     }
@@ -137,7 +125,7 @@ public class TeamCardPanel {
      *
      * @throws SQLException Se si verifica un errore durante il recupero dei dati dal database.
      */
-    private void setupUIForTeamMember() throws SQLException {
+    private void setupUIForTeamMember(boolean isEventActive) throws SQLException {
         Team myTeam = controller.getMyTeam();
         if (myTeam != null) {
             infoLabel.setText("Team: " + myTeam.getTeamName());
@@ -146,6 +134,14 @@ public class TeamCardPanel {
         }
 
         toggleControlsVisibility(false);
+        rAddPanel.setVisible(isEventActive);
+
+        if (!isEventActive) {
+            uploadsInfoLabel.setText("Project uploads will be available once the event starts.");
+        } else {
+            uploadsInfoLabel.setText("Manage your project documents here.");
+        }
+
         updateMembersList();
         updateUploadsList();
     }
@@ -157,10 +153,16 @@ public class TeamCardPanel {
      * di creazione/unione team e svuota le liste di membri e documenti.
      * </p>
      */
-    private void setupUIForLimboUser() {
-        infoLabel.setText("You are not in a team yet");
+    private void setupUIForLimboUser(boolean isEventActive) {
+        infoLabel.setText(isEventActive ? "Choose or create a team!" : "Wait for the event to start to form a team.");
         accessCodeLabel.setVisible(false);
+
         toggleControlsVisibility(true);
+        rCreateTeamPanel.setEnabled(isEventActive);
+        rJoinTeamPanel.setEnabled(isEventActive);
+        createTeamLabel.setForeground(isEventActive ? Color.WHITE : Color.GRAY);
+        joinTeamLabel.setForeground(isEventActive ? UIColors.NIGHT_BLUE : Color.GRAY);
+
         membersListPanel.removeAll();
         uploadsListPanel.removeAll();
     }
@@ -328,11 +330,10 @@ public class TeamCardPanel {
     /**
      * Configura il listener per il codice di accesso del team.
      * <p>
-     * Al clic, copia il codice di accesso negli appunti di sistema e visualizza
-     * temporaneamente il messaggio "Copiato!" prima di ripristinare il testo originale.
-     * </p>
-     * <p>
-     * Gestisce la SQLException silenziosamente (nessun feedback all'utente).
+     * Implementa la copia negli appunti tramite {@link Toolkit} e fornisce un
+     * feedback visivo temporaneo ("copied!"). La {@link SQLException} viene
+     * gestita silenziosamente poiché l'assenza del codice renderebbe il
+     * componente non cliccabile o non popolato.
      * </p>
      */
     private void setupCopyCodeListener() {
@@ -350,6 +351,10 @@ public class TeamCardPanel {
                         new Timer(1000, ev -> accessCodeLabel.setText(oldText)).start();
                     }
                 } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(rootPanel,
+                            "Cannot copy code. Connection error.",
+                            DB_ERROR_TITLE,
+                            JOptionPane.WARNING_MESSAGE);
                 }
             }
         });
@@ -410,15 +415,13 @@ public class TeamCardPanel {
     }
 
     /**
-     * Visualizza la cronologia dei feedback ricevuti per un documento.
+     * Visualizza la cronologia dei feedback ricevuti per un documento specifico.
      * <p>
-     * Recupera tutti i feedback dei giudici per il documento fornito e li visualizza
-     * in un dialogo formattato in HTML con il nome del giudice e il commento.
-     * Se nessun feedback è disponibile, mostra un messaggio informativo.
+     * Formatta i dati in HTML per una visualizzazione testuale ricca all'interno
+     * di un {@link JOptionPane}.
      * </p>
      *
-     * @param d Il documento per il quale visualizzare i feedback.
-     * @throws SQLException Gestita internamente con visualizzazione di un messaggio di errore.
+     * @param d il documento di cui recuperare i feedback
      */
     private void showFeedbackHistory(Document d) {
         try {
