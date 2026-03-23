@@ -6,6 +6,7 @@ import com.intellij.uiDesigner.core.Spacer;
 import controller.Controller;
 import model.Hackathon;
 import model.User;
+import utils.CircleIcon;
 import utils.RoundedPanel;
 import utils.UIColors;
 
@@ -17,6 +18,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
@@ -128,7 +130,7 @@ public class DashboardCardPanel {
         scrollPanel.getVerticalScrollBar().setUnitIncrement(16);
 
         eventListPanel.setLayout(new BoxLayout(eventListPanel, BoxLayout.Y_AXIS));
-        eventListPanel.setBackground(Color.WHITE);
+        eventListPanel.setBackground(null);
     }
 
     /**
@@ -181,6 +183,7 @@ public class DashboardCardPanel {
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         JLabel title = new JLabel(h.getTitle());
         title.setFont(new Font(FONT_FAMILY, Font.BOLD, 18));
+        title.setIcon(new CircleIcon(getEventStatusColor(h)));
         title.setForeground(UIColors.NIGHT_BLUE);
 
         String orgName = "Loading...";
@@ -233,6 +236,20 @@ public class DashboardCardPanel {
         });
 
         return card;
+    }
+
+    /**
+     * Determina l'icona di stato dell'evento in base alle date attuali.
+     */
+    private Color getEventStatusColor(Hackathon h) {
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isAfter(h.getEndDate())) {
+            return UIColors.CARMINE_RED; // Rosso (Terminato)
+        } else if (h.isStarted()) {
+            return new Color(241, 196, 15); // Giallo acceso (In corso)
+        } else {
+            return new Color(46, 204, 113); // Verde smeraldo (Disponibile)
+        }
     }
 
     /**
@@ -303,6 +320,9 @@ public class DashboardCardPanel {
     private void showCreateHackathonDialog() {
         JTextField titleF = new JTextField();
         JTextField locF = new JTextField();
+
+        JTextField regStartF = new JTextField(LocalDate.now().plusDays(1).toString());
+
         JTextField startF = new JTextField(LocalDate.now().plusDays(7).toString());
         JTextField endF = new JTextField(LocalDate.now().plusDays(8).toString());
 
@@ -312,8 +332,9 @@ public class DashboardCardPanel {
         Object[] message = {
                 "Title:", titleF,
                 "Location:", locF,
-                "Start (YYYY-MM-DD):", startF,
-                "End (YYYY-MM-DD):", endF,
+                "Registration Start (YYYY-MM-DD):", regStartF,
+                "Event Start (YYYY-MM-DD):", startF,
+                "Event End (YYYY-MM-DD):", endF,
                 "Max Participants:", maxParticipantsF,
                 "Max Team Size:", maxTeamSizeF
         };
@@ -332,6 +353,7 @@ public class DashboardCardPanel {
                 controller.createHackathonAction(
                         titleF.getText(),
                         locF.getText(),
+                        LocalDate.parse(regStartF.getText()),
                         LocalDate.parse(startF.getText()),
                         LocalDate.parse(endF.getText()),
                         maxP,
@@ -339,7 +361,7 @@ public class DashboardCardPanel {
                 );
 
                 JOptionPane.showMessageDialog(rootPanel, "Hackathon created successfully!");
-                refreshData();
+                refreshData(); //
 
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(rootPanel, "Max Participants and Max Team Size must be valid numbers.", ERROR_TITLE, JOptionPane.ERROR_MESSAGE);

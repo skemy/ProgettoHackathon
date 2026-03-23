@@ -101,12 +101,29 @@ public class TeamCardPanel {
         User currentUser = controller.getCurrentUser();
         try {
             Hackathon h = controller.getCurrentHackathon();
-            boolean isEventActive = (h != null && h.isStarted() && !h.isEnded());
+
+
+            if (h == null) {
+                infoLabel.setText("You are currently not registered for an event.");
+                toggleControlsVisibility(true);
+                setupUIForLimboUser(false);
+                return;
+            }
+
+            boolean isEventActive = h.isStarted() && !h.isEnded();
+
+            boolean canFormTeam = !h.isStarted();
 
             if (currentUser instanceof Participant) {
                 setupUIForTeamMember(isEventActive);
             } else {
-                setupUIForLimboUser(isEventActive);
+                if (canFormTeam) {
+                    infoLabel.setText("Choose or create a team before the event starts!");
+                    infoLabel.setForeground(UIColors.NIGHT_BLUE);
+                } else {
+                    infoLabel.setText("Event in progress! You missed the team formation deadline.");
+                    infoLabel.setForeground(UIColors.CARMINE_RED);
+                }
             }
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(rootPanel, "Error retrieving team data: " + e.getMessage(),
@@ -153,15 +170,13 @@ public class TeamCardPanel {
      * di creazione/unione team e svuota le liste di membri e documenti.
      * </p>
      */
-    private void setupUIForLimboUser(boolean isEventActive) {
-        infoLabel.setText(isEventActive ? "Choose or create a team!" : "Wait for the event to start to form a team.");
+    private void setupUIForLimboUser(boolean canFormTeam) {
         accessCodeLabel.setVisible(false);
-
         toggleControlsVisibility(true);
-        rCreateTeamPanel.setEnabled(isEventActive);
-        rJoinTeamPanel.setEnabled(isEventActive);
-        createTeamLabel.setForeground(isEventActive ? Color.WHITE : Color.GRAY);
-        joinTeamLabel.setForeground(isEventActive ? UIColors.NIGHT_BLUE : Color.GRAY);
+        rCreateTeamPanel.setEnabled(canFormTeam);
+        rJoinTeamPanel.setEnabled(canFormTeam);
+        createTeamLabel.setForeground(canFormTeam ? Color.WHITE : Color.GRAY);
+        joinTeamLabel.setForeground(canFormTeam ? UIColors.NIGHT_BLUE : Color.GRAY);
 
         membersListPanel.removeAll();
         uploadsListPanel.removeAll();

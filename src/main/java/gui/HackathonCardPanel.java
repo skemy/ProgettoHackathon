@@ -42,8 +42,8 @@ import java.util.Locale;
  * </ul>
  * </p>
  * * <p><b>Nota Architetturale:</b>
- * La classe gestisce internamente le {@link java.sql.SQLException} propagate dal Layer Control,
- * garantendo un feedback visivo immediato tramite {@link javax.swing.JOptionPane} e
+ * La classe gestisce internamente le {@link SQLException} propagate dal Layer Control,
+ * garantendo un feedback visivo immediato tramite {@link JOptionPane} e
  * agendo come filtro finale del pattern Boundary.
  */
 @SuppressWarnings("java:S1450") // Sopprime il warning per i campi generati dal GUI Designer
@@ -55,7 +55,9 @@ public class HackathonCardPanel {
     private JLabel hackathonLabel;
     private JLabel infoLabel;
 
-    /** Contenitore a scorrimento che ospita l'intera sezione informativa dell'hackathon. */
+    /**
+     * Contenitore a scorrimento che ospita l'intera sezione informativa dell'hackathon.
+     */
     private JScrollPane scrollPanel;
     private JLabel overviewLabel;
     private JPanel rTitlePanel;
@@ -86,14 +88,17 @@ public class HackathonCardPanel {
     private JPanel rEditPanel;
     private JLabel editLabel;
 
-    /** Area di testo dedicata alla descrizione tecnica della sfida (Problem Statement). */
+    /**
+     * Area di testo dedicata alla descrizione tecnica della sfida (Problem Statement).
+     */
     private JTextArea problemStatementTextArea;
     private JLabel rankingLabel;
     private JLabel publishLabel;
     private JPanel rPublishPanel;
     private JLabel rankingInfoLabel;
 
-    /** * Pannello dinamico destinato a contenere la lista dei team classificati.
+    /**
+     * Pannello dinamico destinato a contenere la lista dei team classificati.
      * Viene popolato a runtime durante l'esecuzione di {@link #loadRanking(boolean)}.
      */
     private JPanel rankingListPanel;
@@ -109,7 +114,9 @@ public class HackathonCardPanel {
 
     private final Controller controller;
 
-    /** Flag di stato: indica se l'utente è attualmente in fase di editing del Problem Statement. */
+    /**
+     * Flag di stato: indica se l'utente è attualmente in fase di editing del Problem Statement.
+     */
     private boolean isEditingMode = false;
 
     /**
@@ -165,7 +172,7 @@ public class HackathonCardPanel {
                 loadRanking(false);
             } else {
                 rPublishPanel.setVisible(false);
-                JLabel pendingLabel = new JLabel("<html><i>The event is still ongoing. Results pending.</i></html>");
+                JLabel pendingLabel = new JLabel("<html><i>The event is still ongoing. Results pending.</i></html>"); //
                 pendingLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
                 rankingListPanel.add(pendingLabel);
             }
@@ -187,6 +194,15 @@ public class HackathonCardPanel {
     private void customizeComponents() {
         scrollPanel.setBorder(null);
         scrollPanel.getVerticalScrollBar().setPreferredSize(new Dimension(5, 0));
+
+        rTitlePanel.setBackground(Color.WHITE);
+        rLocationPanel.setBackground(Color.WHITE);
+        rStartDatePanel.setBackground(Color.WHITE);
+        rEndDatePanel.setBackground(Color.WHITE);
+        rDeadlinePanel.setBackground(Color.WHITE);
+        rMaxParticipantsPanel.setBackground(Color.WHITE);
+        rMaxTeamSizePanel.setBackground(Color.WHITE);
+        rOrganizerPanel.setBackground(Color.WHITE);
 
         rEditPanel.setBackground(UIColors.NIGHT_BLUE);
         editLabel.setForeground(Color.WHITE);
@@ -303,7 +319,7 @@ public class HackathonCardPanel {
      * </p>
      *
      * @param isFinal true per richiedere il calcolo dei risultati definitivi,
-     * false per la visualizzazione dinamica (live)
+     *                false per la visualizzazione dinamica (live)
      */
     private void loadRanking(boolean isFinal) {
         rankingListPanel.add(Box.createVerticalStrut(10));
@@ -358,7 +374,6 @@ public class HackathonCardPanel {
         maxTeamSizeContentLabel.setText("-");
         organizerContentLabel.setText("-");
     }
-
     /**
      * Crea un componente grafico arrotondato per rappresentare una singola posizione in classifica.
      *
@@ -493,7 +508,7 @@ public class HackathonCardPanel {
         titleContentLabel = new JLabel();
         Font titleContentLabelFont = this.$$$getFont$$$(null, -1, -1, titleContentLabel.getFont());
         if (titleContentLabelFont != null) titleContentLabel.setFont(titleContentLabelFont);
-        titleContentLabel.setText(PLACEHOLDER);
+        titleContentLabel.setText("sample_text");
         rTitleContentPanel.add(titleContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer4 = new Spacer();
         rTitlePanel.add(spacer4, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -512,7 +527,7 @@ public class HackathonCardPanel {
         rLocationContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rLocationPanel.add(rLocationContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         locationContentLabel = new JLabel();
-        locationContentLabel.setText(PLACEHOLDER);
+        locationContentLabel.setText("sample_text");
         rLocationContentPanel.add(locationContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer6 = new Spacer();
         rLocationPanel.add(spacer6, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -531,7 +546,7 @@ public class HackathonCardPanel {
         rStartDateContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rStartDatePanel.add(rStartDateContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         startDateContentLabel = new JLabel();
-        startDateContentLabel.setText(PLACEHOLDER);
+        startDateContentLabel.setText("sample_text");
         rStartDateContentPanel.add(startDateContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer8 = new Spacer();
         rStartDatePanel.add(spacer8, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -550,7 +565,7 @@ public class HackathonCardPanel {
         rEndDateContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rEndDatePanel.add(rEndDateContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         endDateContentLabel = new JLabel();
-        endDateContentLabel.setText(PLACEHOLDER);
+        endDateContentLabel.setText("sample_text");
         rEndDateContentPanel.add(endDateContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer10 = new Spacer();
         rEndDatePanel.add(spacer10, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -569,7 +584,7 @@ public class HackathonCardPanel {
         rDeadlineContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rDeadlinePanel.add(rDeadlineContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         deadlineContentLabel = new JLabel();
-        deadlineContentLabel.setText(PLACEHOLDER);
+        deadlineContentLabel.setText("sample_text");
         rDeadlineContentPanel.add(deadlineContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer12 = new Spacer();
         rDeadlinePanel.add(spacer12, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -588,7 +603,7 @@ public class HackathonCardPanel {
         rOrganizerContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rOrganizerPanel.add(rOrganizerContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         organizerContentLabel = new JLabel();
-        organizerContentLabel.setText(PLACEHOLDER);
+        organizerContentLabel.setText("sample_text");
         rOrganizerContentPanel.add(organizerContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer14 = new Spacer();
         rOrganizerPanel.add(spacer14, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -669,7 +684,7 @@ public class HackathonCardPanel {
         rMaxParticipantsContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rMaxParticipantsPanel.add(rMaxParticipantsContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         maxParticipantsContentLabel = new JLabel();
-        maxParticipantsContentLabel.setText(PLACEHOLDER);
+        maxParticipantsContentLabel.setText("sample_text");
         rMaxParticipantsContentPanel.add(maxParticipantsContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer20 = new Spacer();
         rMaxParticipantsPanel.add(spacer20, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
@@ -688,7 +703,7 @@ public class HackathonCardPanel {
         rMaxTeamSizeContentPanel.setLayout(new GridLayoutManager(1, 1, new Insets(6, 6, 6, 6), -1, -1));
         rMaxTeamSizePanel.add(rMaxTeamSizeContentPanel, new GridConstraints(0, 2, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, new Dimension(-1, 30), new Dimension(-1, 30), new Dimension(-1, 30), 0, false));
         maxTeamSizeContentLabel = new JLabel();
-        maxTeamSizeContentLabel.setText(PLACEHOLDER);
+        maxTeamSizeContentLabel.setText("sample_text");
         rMaxTeamSizeContentPanel.add(maxTeamSizeContentLabel, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final Spacer spacer22 = new Spacer();
         rMaxTeamSizePanel.add(spacer22, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));

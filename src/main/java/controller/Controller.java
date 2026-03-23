@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
+//ciao
 
 
 /**
@@ -219,7 +220,7 @@ public class Controller {
 
             int currentTotalParticipants = userDAO.countTotalParticipantsByHackathon(hackathonId);
             if (currentTotalParticipants >= target.getMaxParticipants()) {
-                throw new CannotRegisterToEventException("Sold Out! This hackathon reached the limit of " +
+                throw new CannotRegisterToEventException("Event is full! This hackathon reached the limit of " +
                         target.getMaxParticipants() + " participants.");
             }
         }
@@ -286,22 +287,33 @@ public class Controller {
      * @param maxT Limite massimo della grandezza team.
      * @throws SQLException In caso di fallimento della persistenza o dell'aggiornamento ruoli.
      */
-    public void createHackathonAction(String title, String location, LocalDate startDate, LocalDate endDate, int maxP, int maxT) throws SQLException, BlankFieldException{
+    public void createHackathonAction(String title, String location, LocalDate regStartDate, LocalDate startDate, LocalDate endDate, int maxP, int maxT) throws SQLException, BlankFieldException {
+        LocalDateTime regStart = regStartDate.atStartOfDay();
         LocalDateTime start = startDate.atStartOfDay();
         LocalDateTime end = endDate.atTime(23, 59);
+        LocalDateTime regEnd = start.minusDays(1).withHour(23).withMinute(59);
 
+        if (regStart.isAfter(regEnd)) {
+            throw new IllegalArgumentException("Registration start must be before registration end.");
+        }
+        if (start.isAfter(end)) {
+            throw new IllegalArgumentException("Event start must be before event end.");
+        }
         Hackathon newEvent = new Hackathon.Builder()
-                .title(title).location(location)
-                .startDate(start).endDate(end)
-                .registrationStartDate(start.minusDays(2))
-                .registrationEndDate(start.minusDays(1))
-                .maxParticipants(maxP).maxTeamSize(maxT).build();
-
+                .title(title)
+                .location(location)
+                .startDate(start)
+                .endDate(end)
+                .registrationStartDate(regStart)
+                .registrationEndDate(regEnd)
+                .maxParticipants(maxP)
+                .maxTeamSize(maxT)
+                .problemDescription("")
+                .build();
         hackathonDAO.createHackathon(newEvent);
         userDAO.promoteToOrganizer(loggedInUser.getUserId(), newEvent.getHackathonId());
         this.loggedInUser = resolveActualUserRole(loggedInUser);
     }
-
     /**
      * Aggiorna la descrizione del problema di un hackathon in corso.
      * Invoca `ensureHackathonIsActive()` per garantire che non vengano alterati eventi storici.
@@ -310,9 +322,12 @@ public class Controller {
      * @throws SQLException Per problemi di update sul DB.
      */
     public boolean updateHackathonProblemAction(String description) throws SQLException {
-        ensureHackathonIsActive();
         Hackathon current = getCurrentHackathon();
         if (current == null) return false;
+
+        if (current.isStarted()) {
+            throw new IllegalStateException("The event has already started. The problem statement is now locked and cannot be modified.");
+        }
         hackathonDAO.updateProblemDescription(current.getHackathonId(), description);
         return true;
     }
@@ -332,9 +347,13 @@ public class Controller {
      * @throws IllegalStateException se l'utente non è regolarmente iscritto all'evento.
      */
     public String createTeamAction(String teamName) throws SQLException,BlankFieldException {
-        ensureHackathonIsActive();
         int hId = userDAO.getRegisteredHackathonId(loggedInUser.getUserId());
         if (hId <= 0) throw new IllegalStateException("Register for an event first.");
+
+        Hackathon h = hackathonDAO.getHackathonById(hId);
+        if (h != null && h.isStarted()) {
+            throw new IllegalStateException("Too late! Team formation is closed because the event has already started.");
+        }
 
         Team newTeam = new Team(0, teamName, "", null, hId);
         int teamId = teamDAO.createTeamAndReturnId(newTeam);
@@ -364,17 +383,17 @@ public class Controller {
      * @throws SQLException Se si fallisce il collegamento o la cancellazione dal limbo.
      * @throws IllegalArgumentException Se il codice non è valido o se il team è pieno.
      */
-    public void joinTeamAction(String accessCode) throws SQLException ,BlankFieldException{
-        ensureHackathonIsActive();
-
+    public void joinTeamAction(String accessCode) throws SQLException, BlankFieldException {
         int teamId = teamDAO.getTeamIdByCode(accessCode);
-
         if (teamId <= 0) {
             throw new IllegalArgumentException("Invalid Code");
         }
+
         int teamHid = teamDAO.getHackathonIdByTeam(teamId);
         Hackathon targetHackathon = hackathonDAO.getHackathonById(teamHid);
-
+        if (targetHackathon != null && targetHackathon.isStarted()) {
+            throw new IllegalArgumentException("The competition has already started. Teams are now locked.");
+        }
         if (targetHackathon != null) {
             int maxSize = targetHackathon.getMaxTeamSize();
             int currentMembers = teamDAO.getTeamMembers(teamId).size();
@@ -382,13 +401,10 @@ public class Controller {
                 throw new IllegalArgumentException("The team is full! Maximum capacity is " + maxSize + " members.");
             }
         }
-
         int registeredHid = userDAO.getRegisteredHackathonId(loggedInUser.getUserId());
         teamDAO.linkUserToTeam(loggedInUser.getUserId(), teamId);
-
         userDAO.removeFromLimbo(loggedInUser.getUserId(), registeredHid);
 
-        // Aggiorna la sessione
         this.loggedInUser = resolveActualUserRole(loggedInUser);
     }
 

@@ -222,7 +222,6 @@ public class JudgeManageCardPanel {
     }
 
     private void openTeamDetailsDialog(Team t, List<Document> docs) {
-        // [Metodo invariato per brevità e sicurezza]
         JPanel container = new JPanel();
         container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
         container.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -270,7 +269,6 @@ public class JudgeManageCardPanel {
      * @param d Il documento oggetto della valutazione.
      */
     private void handleFeedbackAction(Document d) {
-        // [Metodo invariato]
         String existingComment = "";
         try {
             existingComment = controller.getMyFeedbackForDocument(d.getDocumentId());
@@ -394,13 +392,11 @@ public class JudgeManageCardPanel {
         scrollPanel.setBorder(null);
         scrollPanel.getVerticalScrollBar().setUnitIncrement(16);
 
-        // --- RIMOZIONE DEGLI SFONDI BIANCHI ---
         // Rendiamo trasparenti i contenitori così ereditano il grigio del MainFrame
         scrollPanel.getViewport().setOpaque(false);
         teamsListPanel.setOpaque(false);
         rTeamsListPanel.setOpaque(false);
 
-        // --- FORZATURA ESTENSIONE LARGHEZZA ---
         // Scavalchiamo il GridConstraints sostituendo il layout programmaticamente
         rTeamsListPanel.setLayout(new BorderLayout());
         rTeamsListPanel.add(teamsListPanel, BorderLayout.CENTER);
